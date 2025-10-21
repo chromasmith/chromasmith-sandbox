@@ -6,7 +6,7 @@ export const Button = ({ label, onClick }) => {
       onClick={onClick}
       style={{
         padding: '10px 20px',
-        backgroundColor: '#28a745',
+        backgroundColor: '#007bff',
         color: 'white',
         border: 'none',
         borderRadius: '4px',
