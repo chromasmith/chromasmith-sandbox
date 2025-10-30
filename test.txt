@@ -1,2 +1,2 @@
-Rmlawed webhook verification test - 2025-10-30T22:05:00Z
-Testing x-proxy header forwarding - 2025-10-30T22:47:00Z
+Testing complete webhook flow with pull - 2025-10-30T22:57:00Z
+This commit tests the full webhook pipeline including the pull operation.
