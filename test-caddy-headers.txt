@@ -1,0 +1,2 @@
+Testing Caddy transparent header configuration
+Timestamp: 2025-10-30T22:30:00Z
