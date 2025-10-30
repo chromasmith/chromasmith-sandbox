@@ -8,3 +8,4 @@ Minimal React + Ladle sandbox for testing ForgeView live reload
 Webhook flow test - signature preserved
 Final webhook flow test - Worker auth bypass
 Debug headers test
+Signature header test - secret configured
