@@ -1,16 +1,1 @@
-# chromasmith-sandbox
-Minimal React + Ladle sandbox for testing ForgeView live reload
-
-<!-- Webhook test 2025-10-23 -->
-<!-- Webhook test 2025-10-23 15:30 -->
-<!-- Webhook test 2025-10-23 16:24 - after restart -->
-<!-- Final test 2025-10-23 16:58 -->
-Webhook flow test - signature preserved
-Final webhook flow test - Worker auth bypass
-Debug headers test
-Signature header test - secret configured
-Response identifier test
-
-# FF 6.4 Queue Flow Test - 2025-10-31T15:10:00Z
-# FF 6.4 Queue Flow Test - 2025-10-31T15:14:30Z
-# FF 6.4 Test - 2025-10-31T16:45:00Z
+IyBjaHJvbWFzbWl0aC1zYW5kYm94Ck1pbmltYWwgUmVhY3QgKyBMYWRsZSBzYW5kYm94IGZvciB0ZXN0aW5nIEZvcmdlVmlldyBsaXZlIHJlbG9hZAoKPCEtLSBXZWJob29rIHRlc3QgMjAyNS0xMC0yMyAtLT4KPCEtLSBXZWJob29rIHRlc3QgMjAyNS0xMC0yMyAxNTozMCAtLT4KPCEtLSBXZWJob29rIHRlc3QgMjAyNS0xMC0yMyAxNjoyNCAtIGFmdGVyIHJlc3RhcnQgLS0+CjwhLS0gRmluYWwgdGVzdCAyMDI1LTEwLTIzIDE2OjU4IC0tPgpXZWJob29rIGZsb3cgdGVzdCAtIHNpZ25hdHVyZSBwcmVzZXJ2ZWQKRmluYWwgd2ViaG9vayBmbG93IHRlc3QgLSBXb3JrZXIgYXV0aCBieXBhc3MKRGVidWcgaGVhZGVycyB0ZXN0ClNpZ25hdHVyZSBoZWFkZXIgdGVzdCAtIHNlY3JldCBjb25maWd1cmVkClJlc3BvbnNlIGlkZW50aWZpZXIgdGVzdAoKIyBGRiA2LjQgUXVldWUgRmxvdyBUZXN0IC0gMjAyNS0xMC0zMVQxNToxMDowMFoKIyBGRiA2LjQgUXVldWUgRmxvdyBUZXN0IC0gMjAyNS0xMC0zMVQxNToxNDozMFoKIyBGRiA2LjQgVGVzdCAtIDIwMjUtMTAtMzFUMTY6NDU6MDBaCiMgRkYgNi40IEZpeGVkIFdvcmtlciBUZXN0IC0gMjAyNS0xMC0zMVQxNjo1Mjo0OVoK
