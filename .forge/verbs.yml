@@ -149,3 +149,17 @@ repo:
     returns: maps[]
     idempotent: true
     audit_log: false
+
+# Validation Verbs (Pillar 3: Safety)
+validate:
+  - verb: validateMap
+    params: [map, schemaType]
+    returns: "{valid: boolean, errors: []}"
+    idempotent: true
+    audit_log: false
+    
+  - verb: validateOrThrow
+    params: [map, schemaType]
+    returns: boolean
+    idempotent: true
+    audit_log: false
