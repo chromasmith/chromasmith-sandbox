@@ -27,7 +27,7 @@ async function validateSystemWorkflow() {
     
     // Check lock mechanism
     const testLockId = `test-${Date.now()}`;
-    await durability.acquireLock(testLockId, 1000);
+    await durability.acquireLock(testLockId, 3000);
     await durability.releaseLock();
     console.log('✅ Lock mechanism: PASSED');
     
