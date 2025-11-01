@@ -51,8 +51,16 @@ async function testAdaptiveMode() {
       }
     }
     
-    // Test 5: Soft block with override
+    // Test 5: Soft block with override (reset to soft_block first)
     console.log('\nTest 5: Soft block (with override)');
+    // Reset to 2 violations (soft_block level)
+    await healthMesh.setHealth({
+      safe_mode: 'healthy',
+      reason: null,
+      since: new Date().toISOString(),
+      consecutive_failures: 0,
+      violation_warnings: 2
+    });
     const allowed2 = await guard.adaptiveEnforce('override_operation', true);
     console.log(`✅ Override allowed: ${allowed2}`);
     
