@@ -1,0 +1,131 @@
+# Forge Flow 6.4 - Verb Registry
+# Atomic operations that power the system
+# Updated: 2025-11-01
+
+version: "6.4"
+
+# Durability Layer Verbs
+durability:
+  - verb: acquireLock
+    params: [ownerId, maxWaitMs]
+    returns: void
+    idempotent: false
+    audit_log: true
+    
+  - verb: releaseLock
+    params: []
+    returns: void
+    idempotent: true
+    audit_log: true
+    
+  - verb: atomicWriteJson
+    params: [targetPath, data, runId]
+    returns: void
+    idempotent: true
+    audit_log: true
+    
+  - verb: appendAuditLog
+    params: [event]
+    returns: hash
+    idempotent: false
+    audit_log: false  # self-logging
+    
+  - verb: appendEventLedger
+    params: [sourceEventId, payload, targetScope]
+    returns: idempotencyKey
+    idempotent: true
+    audit_log: true
+    
+  - verb: replayWAL
+    params: []
+    returns: replayCount
+    idempotent: true
+    audit_log: true
+
+# Run Workflow Verbs
+run:
+  - verb: start
+    params: [payload]
+    returns: runId
+    idempotent: false
+    audit_log: true
+    
+  - verb: note
+    params: [runId, notePayload]
+    returns: void
+    idempotent: false
+    audit_log: true
+    
+  - verb: finish
+    params: [runId, outcome]
+    returns: void
+    idempotent: false
+    audit_log: true
+
+# Context Protocol Verbs
+context:
+  - verb: calculateScore
+    params: [map, currentContext]
+    returns: score
+    idempotent: true
+    audit_log: false
+    
+  - verb: upsertMap
+    params: [mapId, mapData, runId]
+    returns: void
+    idempotent: true
+    audit_log: true
+    
+  - verb: getTopMaps
+    params: [contextHint, limit]
+    returns: maps[]
+    idempotent: true
+    audit_log: false
+    
+  - verb: updateHotIndex
+    params: [mapId, runId]
+    returns: void
+    idempotent: true
+    audit_log: false
+    
+  - verb: isHot
+    params: [mapId]
+    returns: boolean
+    idempotent: true
+    audit_log: false
+
+# Incident Management Verbs
+incident:
+  - verb: start
+    params: [payload]
+    returns: incidentId
+    idempotent: false
+    audit_log: true
+    
+  - verb: note
+    params: [incidentId, notePayload]
+    returns: void
+    idempotent: false
+    audit_log: true
+    
+  - verb: resolve
+    params: [incidentId, rca]
+    returns: void
+    idempotent: false
+    audit_log: true
+
+# Guard Verbs (Pillar 3 - not yet implemented)
+guard:
+  - verb: never_auto_infra
+    params: [confirm]
+    returns: void
+    idempotent: true
+    audit_log: true
+    status: planned
+    
+  - verb: enforce_safe_mode
+    params: []
+    returns: void
+    idempotent: true
+    audit_log: true
+    status: planned
