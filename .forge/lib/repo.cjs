@@ -44,6 +44,10 @@ async function read(mapId) {
  * @returns {void}
  */
 async function write(mapId, mapData, runId) {
+  // Safe-mode enforcement (Pillar 3: Safety)
+  const guard = require('./guard.cjs');
+  await guard.enforceSafeMode();
+  
   // Ensure maps directory exists
   await fs.mkdir(MAPS_ROOT, { recursive: true });
   
