@@ -39,11 +39,14 @@ async function publishContentWorkflow(contentId, publishOptions = {}) {
     } catch (error) {
       if (error.message.includes('not found')) {
         console.log(`ℹ️  Content not found, creating new content record`);
+        const now = new Date().toISOString();
         content = {
           id: contentId,
           title: `Content ${contentId}`,
           status: 'draft',
-          tags: ['content']
+          tags: ['content'],
+          created_at: now,
+          updated_at: now
         };
       } else {
         throw error;
@@ -65,14 +68,18 @@ async function publishContentWorkflow(contentId, publishOptions = {}) {
     
     // Step 5: Update content with publishing info
     await run.note(runId, { phase: 'updating_content' });
+    const now = new Date().toISOString();
+    
     const publishedContent = {
       ...content,
-      status: 'published',
+      status: 'active', // Published content is active (per schema)
       published_at: publishedAt,
       published_by: runId,
       channels: channels,
       related_content: relatedContent.map(c => c.id),
-      version: (content.version || 0) + 1
+      version: (content.version || 0) + 1,
+      created_at: content.created_at || now,
+      updated_at: now
     };
     
     await repo.write(contentId, publishedContent, runId);
@@ -91,7 +98,7 @@ async function publishContentWorkflow(contentId, publishOptions = {}) {
     
     console.log('\n✅ Content publishing completed successfully');
     return {
-      status: 'published',
+      status: 'active', // Published = active in schema
       runId,
       content: publishedContent,
       relatedContentCount: relatedContent.length,
