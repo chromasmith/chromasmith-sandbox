@@ -1,0 +1,97 @@
+# Forge Flow 6.4 - Trigger Registry
+# Event → Playbook/Macro mappings
+# Updated: 2025-11-01
+
+version: "6.4"
+
+triggers:
+  # Webhook Events
+  - event: github_push
+    conditions:
+      branch: [dev, feature/*]
+      organization: chromasmith
+    action: visual_iteration_loop
+    implemented: true
+    handler: forgeview_webhook_listener
+    
+  - event: vercel_deploy_hook
+    conditions:
+      deploymentStatus: READY
+    action: update_deployment_status
+    implemented: false
+    handler: forgeview_webhook_listener
+    
+  - event: stripe_webhook
+    conditions:
+      type: [payment_intent.succeeded, subscription.updated]
+    action: process_billing_event
+    implemented: false
+    handler: forgeview_webhook_listener
+    
+  - event: sentry_alert_webhook
+    conditions:
+      severity: [high, critical]
+    action: maintenance_incident_workflow
+    implemented: false
+    handler: forgeview_webhook_listener
+    
+  # System Events
+  - event: service_health_degraded
+    conditions:
+      consecutive_failures: ">= 3"
+    action: maintenance_incident_workflow
+    implemented: false
+    handler: health_mesh
+    
+  - event: drift_detected
+    conditions:
+      confidence: ">= 0.9"
+    action: reconcile_drift_workflow
+    implemented: false
+    handler: quick_drift_scan
+    
+  - event: lock_stale
+    conditions:
+      age_minutes: ">= 5"
+    action: recover_stale_lock
+    implemented: true
+    handler: durability.acquireLock
+    
+  - event: wal_uncommitted
+    conditions:
+      pending_writes: ">= 1"
+    action: replay_wal
+    implemented: true
+    handler: durability.replayWAL
+    
+  # Scheduled Events
+  - event: daily_validation
+    schedule: "0 6 * * *"
+    action: validate_and_heal_workflow
+    implemented: false
+    handler: cron
+    
+  - event: weekly_archive
+    schedule: "0 2 * * 0"
+    action: archive_cold_maps_workflow
+    implemented: false
+    handler: cron
+    
+  - event: nightly_cleanup
+    schedule: "0 3 * * *"
+    action: nl.nuke.auto
+    implemented: false
+    handler: cron
+    
+  # User Commands
+  - event: user_command_activate_forge_flow
+    utterances: ["Claude, fire up Forge Flow", "Activate Forge Flow"]
+    action: activation_workflow
+    implemented: false
+    handler: command_grammar
+    
+  - event: user_command_deploy_feature
+    utterances: ["deploy_feature"]
+    action: deploy_feature_workflow
+    implemented: false
+    handler: command_grammar
