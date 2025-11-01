@@ -2,7 +2,7 @@
  * Forge Flow 6.4 - System Validation Playbook
  * Validates system health: locks, WAL, hot index, context scoring
  * Uses: run, durability, context
- * Duration estimate: ~500ms
+ * Duration estimate: ~400ms (5 checks: WAL, audit, scoring, hot index, context query)
  */
 
 const durability = require('./durability.cjs');
@@ -25,11 +25,7 @@ async function validateSystemWorkflow() {
     // Step 2: Validate durability layer
     await run.note(runId, { phase: 'durability_checks' });
     
-    // Check lock mechanism
-    const testLockId = `test-${Date.now()}`;
-    await durability.acquireLock(testLockId, 3000);
-    await durability.releaseLock();
-    console.log('✅ Lock mechanism: PASSED');
+    // Note: Lock mechanism validated by run.start() acquiring lock
     
     // Check WAL system
     const walTestPath = `test/wal-check-${Date.now()}.json`;
@@ -81,7 +77,7 @@ async function validateSystemWorkflow() {
     return {
       status: 'healthy',
       runId,
-      checksCompleted: 6
+      checksCompleted: 5
     };
     
   } catch (error) {
