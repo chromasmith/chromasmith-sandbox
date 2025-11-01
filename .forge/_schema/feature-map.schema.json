@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Feature Map Schema",
+  "description": "Schema for feature deployment maps",
+  "allOf": [
+    { "$ref": "./base-map.schema.json" }
+  ],
+  "properties": {
+    "deployed_to": {
+      "type": "string",
+      "enum": ["dev", "staging", "prod"],
+      "description": "Deployment environment"
+    },
+    "deployed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Deployment timestamp"
+    },
+    "deployed_by": {
+      "type": "string",
+      "description": "Run ID that performed deployment"
+    }
+  }
+}
