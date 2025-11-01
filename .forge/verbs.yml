@@ -129,3 +129,23 @@ guard:
     idempotent: true
     audit_log: true
     status: planned
+
+# Repository CRUD Verbs
+repo:
+  - verb: read
+    params: [mapId]
+    returns: map
+    idempotent: true
+    audit_log: false
+    
+  - verb: write
+    params: [mapId, mapData, runId]
+    returns: void
+    idempotent: true
+    audit_log: true
+    
+  - verb: list
+    params: [filters]
+    returns: maps[]
+    idempotent: true
+    audit_log: false
