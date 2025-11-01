@@ -14,6 +14,13 @@ let healthCache = null;
 let lastCheck = 0;
 const CACHE_TTL_MS = 5000; // 5 second cache
 
+// Enforcement levels
+const ENFORCEMENT_LEVELS = {
+  WARN: 'warn',           // Log warning but allow
+  SOFT_BLOCK: 'soft_block', // Block with option to override
+  HARD_BLOCK: 'hard_block'  // Strict blocking
+};
+
 /**
  * Get current health status
  * @returns {object} { safe_mode: 'healthy'|'read_only', reason: string, since: timestamp }
@@ -167,6 +174,60 @@ async function resetCircuitBreaker() {
   });
 }
 
+/**
+ * Get enforcement level based on violation history
+ * @returns {string} Current enforcement level
+ */
+async function getEnforcementLevel() {
+  const health = await getHealth();
+  const warnings = health.violation_warnings || 0;
+  
+  if (warnings === 0) {
+    return ENFORCEMENT_LEVELS.WARN;
+  } else if (warnings < 3) {
+    return ENFORCEMENT_LEVELS.SOFT_BLOCK;
+  } else {
+    return ENFORCEMENT_LEVELS.HARD_BLOCK;
+  }
+}
+
+/**
+ * Record a violation warning
+ * @param {string} reason - Violation reason
+ */
+async function recordViolation(reason) {
+  const health = await getHealth();
+  const warnings = (health.violation_warnings || 0) + 1;
+  
+  console.warn(`⚠️  Violation recorded (${warnings}): ${reason}`);
+  
+  await setHealth({
+    ...health,
+    violation_warnings: warnings,
+    last_violation: {
+      reason,
+      timestamp: new Date().toISOString()
+    }
+  });
+  
+  return warnings;
+}
+
+/**
+ * Clear violation history
+ */
+async function clearViolations() {
+  const health = await getHealth();
+  
+  console.log('✅ Violations cleared');
+  
+  await setHealth({
+    ...health,
+    violation_warnings: 0,
+    last_violation: null
+  });
+}
+
 module.exports = {
   getHealth,
   setHealth,
@@ -175,5 +236,9 @@ module.exports = {
   recordFailure,
   recordSuccess,
   isCircuitOpen,
-  resetCircuitBreaker
+  resetCircuitBreaker,
+  getEnforcementLevel,
+  recordViolation,
+  clearViolations,
+  ENFORCEMENT_LEVELS
 };
