@@ -1,0 +1,95 @@
+# Forge Flow 6.4 - Macro Registry
+# Composed workflows that orchestrate multiple verbs
+# Updated: 2025-11-01
+
+version: "6.4"
+
+macros:
+  - name: maintenance_incident_workflow
+    description: Complete incident handling from start to resolution
+    implemented: true
+    file: .forge/lib/playbook-maintenance-incident.cjs
+    verbs_used:
+      - run.start
+      - context.getTopMaps
+      - incident.start
+      - incident.note
+      - incident.resolve
+      - run.finish
+    duration_estimate: 650ms
+    
+  - name: deploy_feature_workflow
+    description: Deploy feature with change tracking
+    implemented: false
+    verbs_needed:
+      - run.start
+      - context.getTopMaps
+      - repo.read  # future
+      - repo.write  # future
+      - repo.publish  # future
+      - run.finish
+    status: planned
+    
+  - name: publish_content_workflow
+    description: Content scheduling and release notes
+    implemented: false
+    verbs_needed:
+      - run.start
+      - context.getTopMaps
+      - repo.read  # future
+      - repo.write  # future
+      - summarize  # future
+      - run.finish
+    status: planned
+    
+  - name: provision_channel_workflow
+    description: Scaffold new channel with validation
+    implemented: false
+    verbs_needed:
+      - run.start
+      - validate  # future
+      - scaffold  # future
+      - repo.write  # future
+      - link  # future
+      - run.finish
+    status: planned
+    
+  - name: reconcile_drift_workflow
+    description: Detect and repair system drift
+    implemented: false
+    verbs_needed:
+      - run.start
+      - nl.reconcile.scan  # future
+      - repair  # future
+      - run.finish
+    status: planned
+    
+  - name: backup_and_restore_workflow
+    description: Create snapshot and restore state
+    implemented: false
+    verbs_needed:
+      - run.start
+      - nl.backup.create  # future
+      - nl.backup.restore  # future
+      - run.finish
+    status: planned
+    
+  - name: validate_and_heal_workflow
+    description: Run validation and auto-heal issues
+    implemented: false
+    verbs_needed:
+      - run.start
+      - validate  # future
+      - nl.reflect.autofix  # future
+      - run.finish
+    status: planned
+    
+  - name: archive_cold_maps_workflow
+    description: Archive inactive maps per policy
+    implemented: false
+    verbs_needed:
+      - run.start
+      - context.getTopMaps
+      - archive  # future
+      - run.finish
+    status: planned
