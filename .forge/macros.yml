@@ -74,6 +74,23 @@ macros:
       - run.finish
     status: planned
     
+  - name: validate_system_workflow
+    description: System health check for durability and context layers
+    implemented: true
+    file: .forge/lib/playbook-validate-system.cjs
+    verbs_used:
+      - run.start
+      - run.note
+      - run.finish
+      - durability.acquireLock
+      - durability.releaseLock
+      - durability.atomicWriteJson
+      - durability.appendAuditLog
+      - context.calculateScore
+      - context.isHot
+      - context.getTopMaps
+    duration_estimate: 500ms
+    
   - name: validate_and_heal_workflow
     description: Run validation and auto-heal issues
     implemented: false
