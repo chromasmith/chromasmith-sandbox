@@ -47,6 +47,11 @@ async function write(mapId, mapData, runId) {
   // Ensure maps directory exists
   await fs.mkdir(MAPS_ROOT, { recursive: true });
   
+  // Schema validation (Pillar 3: Safety)
+  const validate = require('./validate.cjs');
+  const schemaType = mapData.deployed_to ? 'feature-map' : 'base-map';
+  await validate.validateOrThrow({ ...mapData, id: mapId }, schemaType);
+  
   // Add/update metadata
   const now = new Date().toISOString();
   const map = {
