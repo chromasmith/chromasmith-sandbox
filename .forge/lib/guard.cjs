@@ -13,6 +13,11 @@ const healthMesh = require('./health-mesh.cjs');
 async function enforceSafeMode() {
   const health = await healthMesh.getHealth();
   
+  // Check circuit breaker first
+  if (await healthMesh.isCircuitOpen()) {
+    throw new Error(`CIRCUIT_BREAKER_OPEN: ${health.consecutive_failures} consecutive failures detected`);
+  }
+  
   if (health.safe_mode === 'read_only') {
     throw new Error(`SAFE_MODE_READ_ONLY: ${health.reason || 'System in read-only mode'}`);
   }
