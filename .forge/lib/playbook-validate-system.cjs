@@ -51,7 +51,8 @@ async function validateSystemWorkflow() {
       updated_at: new Date().toISOString()
     };
     const score = await context.calculateScore(testMap, { tags: ['system'] });
-    console.log(`✅ Context scoring: PASSED (score: ${score.toFixed(3)})`);
+    const scoreValue = typeof score === 'number' ? score : (score?.total ?? 0);
+    console.log(`✅ Context scoring: PASSED (score: ${scoreValue.toFixed(3)})`);
     
     // Check hot index
     const isHot = await context.isHot('test-map-nonexistent');
