@@ -33,15 +33,16 @@ macros:
     
   - name: publish_content_workflow
     description: Content scheduling and release notes
-    implemented: false
-    verbs_needed:
+    implemented: true
+    file: .forge/lib/playbook-publish-content.cjs
+    verbs_used:
       - run.start
-      - context.getTopMaps
-      - repo.read  # future
-      - repo.write  # future
-      - summarize  # future
+      - run.note
       - run.finish
-    status: planned
+      - repo.read
+      - repo.write
+      - context.getTopMaps
+    duration_estimate: 250ms
     
   - name: provision_channel_workflow
     description: Scaffold new channel with validation
