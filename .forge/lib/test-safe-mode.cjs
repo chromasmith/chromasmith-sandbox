@@ -24,7 +24,9 @@ async function testSafeMode() {
     await repo.write('test-safe-001', {
       title: 'Safe Mode Test',
       tags: ['test'],
-      status: 'active'
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }, runId);
     console.log('✅ Write succeeded (healthy)');
     
@@ -40,7 +42,9 @@ async function testSafeMode() {
       await repo.write('test-safe-002', {
         title: 'Should Fail',
         tags: ['test'],
-        status: 'active'
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }, runId);
       console.log('❌ Write should have failed!');
     } catch (error) {
@@ -62,7 +66,9 @@ async function testSafeMode() {
     await repo.write('test-safe-003', {
       title: 'Recovery Test',
       tags: ['test'],
-      status: 'active'
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }, runId);
     console.log('✅ Write succeeded (recovered)');
     
