@@ -20,15 +20,16 @@ macros:
     
   - name: deploy_feature_workflow
     description: Deploy feature with change tracking
-    implemented: false
-    verbs_needed:
+    implemented: true
+    file: .forge/lib/playbook-deploy-feature.cjs
+    verbs_used:
       - run.start
-      - context.getTopMaps
-      - repo.read  # future
-      - repo.write  # future
-      - repo.publish  # future
+      - run.note
       - run.finish
-    status: planned
+      - repo.read
+      - repo.write
+      - context.getTopMaps
+    duration_estimate: 300ms
     
   - name: publish_content_workflow
     description: Content scheduling and release notes
