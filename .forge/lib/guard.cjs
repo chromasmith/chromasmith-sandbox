@@ -33,7 +33,38 @@ function neverAutoInfra(confirm) {
   }
 }
 
+/**
+ * Adaptive enforcement check
+ * Warns first, then blocks based on violation history
+ * @param {string} operation - Operation being attempted
+ * @param {boolean} allowOverride - Allow override in soft_block mode
+ */
+async function adaptiveEnforce(operation, allowOverride = false) {
+  const level = await healthMesh.getEnforcementLevel();
+  const health = await healthMesh.getHealth();
+  
+  if (level === healthMesh.ENFORCEMENT_LEVELS.WARN) {
+    console.warn(`⚠️  Warning: ${operation} (enforcement level: warn)`);
+    return true; // Allow with warning
+  }
+  
+  if (level === healthMesh.ENFORCEMENT_LEVELS.SOFT_BLOCK) {
+    if (allowOverride) {
+      console.warn(`⚠️  Soft block overridden: ${operation}`);
+      return true;
+    }
+    await healthMesh.recordViolation(operation);
+    throw new Error(`SOFT_BLOCK: ${operation} blocked (${health.violation_warnings || 0} violations)`);
+  }
+  
+  if (level === healthMesh.ENFORCEMENT_LEVELS.HARD_BLOCK) {
+    await healthMesh.recordViolation(operation);
+    throw new Error(`HARD_BLOCK: ${operation} strictly blocked (${health.violation_warnings || 0} violations)`);
+  }
+}
+
 module.exports = {
   enforceSafeMode,
-  neverAutoInfra
+  neverAutoInfra,
+  adaptiveEnforce
 };
