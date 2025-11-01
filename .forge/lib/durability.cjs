@@ -88,7 +88,7 @@ async function atomicWriteJson(targetPath, data, runId) {
   fsSync.fsyncSync(fsSync.openSync(walShadowPath, 'r+'));
   
   // Write actual data
-  const fullPath = path.join(FORGE_ROOT, '..', targetPath);
+  const fullPath = path.join(FORGE_ROOT, targetPath);
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
   await fs.writeFile(fullPath, JSON.stringify(data, null, 2));
   fsSync.fsyncSync(fsSync.openSync(fullPath, 'r+'));
