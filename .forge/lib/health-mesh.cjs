@@ -142,11 +142,38 @@ async function recordSuccess() {
   }
 }
 
+/**
+ * Check if circuit breaker is open
+ * @returns {boolean} True if circuit is open (operations should be blocked)
+ */
+async function isCircuitOpen() {
+  const health = await getHealth();
+  return health.consecutive_failures >= 3;
+}
+
+/**
+ * Reset circuit breaker manually (admin action)
+ */
+async function resetCircuitBreaker() {
+  const health = await getHealth();
+  
+  console.log('🔄 Manual circuit breaker reset');
+  
+  await setHealth({
+    ...health,
+    consecutive_failures: 0,
+    safe_mode: 'healthy',
+    reason: null
+  });
+}
+
 module.exports = {
   getHealth,
   setHealth,
   enterSafeMode,
   exitSafeMode,
   recordFailure,
-  recordSuccess
+  recordSuccess,
+  isCircuitOpen,
+  resetCircuitBreaker
 };
