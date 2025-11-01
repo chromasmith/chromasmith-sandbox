@@ -114,21 +114,21 @@ incident:
     idempotent: false
     audit_log: true
 
-# Guard Verbs (Pillar 3 - not yet implemented)
+# Guard Verbs (Pillar 3: Safety)
 guard:
   - verb: never_auto_infra
     params: [confirm]
     returns: void
     idempotent: true
     audit_log: true
-    status: planned
+    status: implemented
     
   - verb: enforce_safe_mode
     params: []
     returns: void
     idempotent: true
     audit_log: true
-    status: planned
+    status: implemented
 
 # Repository CRUD Verbs
 repo:
