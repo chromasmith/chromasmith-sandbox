@@ -3,6 +3,9 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
 const { discover } = require('./nl-verb-discover.cjs');
 
 function sanitizeFileName(description) {
@@ -126,6 +129,25 @@ function toCamelCase(str) {
     .join('');
 }
 
+async function validateSyntax(code, tempFile) {
+  // Write to temp file and validate syntax
+  const tempPath = path.join(__dirname, tempFile);
+  await fs.writeFile(tempPath, code, 'utf8');
+  
+  try {
+    await execAsync(`node --check ${tempPath}`);
+    await fs.unlink(tempPath);
+    return { valid: true };
+  } catch (error) {
+    await fs.unlink(tempPath);
+    return { 
+      valid: false, 
+      error: error.message,
+      suggestion: 'Check for escaped template literals or syntax errors'
+    };
+  }
+}
+
 async function generate(description, options = {}) {
   // Step 1: Discover verbs
   const discovery = await discover(description);
@@ -136,7 +158,15 @@ async function generate(description, options = {}) {
   // Step 3: Generate code
   const code = generatePlaybookCode(name, description, discovery.analysis.verbs);
   
-  // Step 4: Write file (if not dry-run)
+  // Step 4: Validate syntax
+  const tempFileName = `_temp_validate_${Date.now()}.cjs`;
+  const validation = await validateSyntax(code, tempFileName);
+  
+  if (!validation.valid) {
+    throw new Error(`Syntax validation failed: ${validation.error}. ${validation.suggestion}`);
+  }
+  
+  // Step 5: Write file (if not dry-run)
   const fileName = `${name}.cjs`;
   const filePath = path.join(__dirname, fileName);
   
