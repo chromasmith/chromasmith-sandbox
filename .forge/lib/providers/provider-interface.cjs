@@ -159,6 +159,15 @@ class Provider {
   }
   
   /**
+   * Get capability level for a feature
+   * @param {string} feature - Feature name
+   * @returns {boolean|string} true, false, or 'partial'
+   */
+  getCapabilityLevel(feature) {
+    return this.capabilities[feature] || false;
+  }
+  
+  /**
    * Get provider capabilities
    * @returns {Object} Capability map
    */
