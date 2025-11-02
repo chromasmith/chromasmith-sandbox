@@ -1,5 +1,5 @@
 // Ntendril Firestore Security Rules Converter
-// SYSTEMATIC FIX: Proper field qualification without breaking paths
+// FINAL SYSTEMATIC FIX: Symbol-based placeholders that won't match word patterns
 
 const fs = require('fs').promises;
 const path = require('path');
@@ -77,9 +77,12 @@ class FirestoreConverter {
   convertCondition(sqlCondition) {
     let condition = sqlCondition.trim();
     
-    // Step 1: Convert auth - do this FIRST and PROTECT it
-    condition = condition.replace(/\bauth\.uid\(\)/g, '<<REQUEST_AUTH_UID>>');
-    condition = condition.replace(/\bcurrent_user\b/g, '<<REQUEST_AUTH_UID>>');
+    // Use symbol-based marker that can't match \w+
+    const AUTH_MARKER = '___AUTH___';
+    
+    // Step 1: Protect auth references with non-word marker
+    condition = condition.replace(/\bauth\.uid\(\)/g, AUTH_MARKER);
+    condition = condition.replace(/\bcurrent_user\b/g, AUTH_MARKER);
     
     // Step 2: Convert operators
     condition = condition.replace(/\s*=\s*/g, ' == ');
@@ -87,22 +90,18 @@ class FirestoreConverter {
     // Step 3: Remove type casts
     condition = condition.replace(/::\w+/g, '');
     
-    // Step 4: Qualify bare field names (but NOT parts of paths)
-    // Use negative lookbehind/lookahead to avoid matching words that are part of paths
+    // Step 4: Qualify bare field names (won't match marker with underscores)
     condition = condition.replace(/(?<![.\w])(\w+)(?![.\w])/g, (match) => {
-      // Skip if it's a protected placeholder
-      if (match.startsWith('<<')) return match;
-      
       // Skip reserved words
-      const reserved = ['true', 'false', 'null', 'REQUEST', 'AUTH', 'UID'];
-      if (reserved.includes(match.toUpperCase())) return match;
+      const reserved = ['true', 'false', 'null'];
+      if (reserved.includes(match.toLowerCase())) return match;
       
       // Qualify as resource.data.fieldName
       return `resource.data.${match}`;
     });
     
-    // Step 5: Restore protected auth references
-    condition = condition.replace(/<<REQUEST_AUTH_UID>>/g, 'request.auth.uid');
+    // Step 5: Restore auth references
+    condition = condition.replace(/___AUTH___/g, 'request.auth.uid');
     
     // Step 6: Handle simple cases
     if (condition === 'true' || condition.trim() === '') {
