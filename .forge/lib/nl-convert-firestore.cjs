@@ -80,13 +80,13 @@ service cloud.firestore {
     // Generate read rules
     if (readPolicies.length > 0) {
       const readConditions = readPolicies.map(p => this.convertCondition(p.using));
-      rules += `      allow read: if ${this.combineConditions(readConditions, 'OR')};\\n`;
+      rules += `      allow read: if ${this.combineConditions(readConditions, 'OR')};\n`;
     }
     
     // Generate write rules
     if (writePolicies.length > 0) {
       const writeConditions = writePolicies.map(p => this.convertCondition(p.withCheck));
-      rules += `      allow write: if ${this.combineConditions(writeConditions, 'OR')};\\n`;
+      rules += `      allow write: if ${this.combineConditions(writeConditions, 'OR')};\n`;
     }
     
     rules += `    }
@@ -96,30 +96,19 @@ service cloud.firestore {
   }
   
   convertCondition(sqlCondition) {
-    // Convert SQL expressions to Firestore rules expressions
     let condition = sqlCondition.trim();
     
-    // Convert auth checks FIRST (before other replacements)
+    // First convert auth functions
     condition = condition.replace(/auth\.uid\(\)/g, 'request.auth.uid');
     condition = condition.replace(/current_user/g, 'request.auth.uid');
     
-    // Convert operators (= to ==) but avoid replacing already-converted auth
-    condition = condition.replace(/(\s)=(\s)/g, '$1==$2');
+    // Convert = to == but preserve spacing
+    condition = condition.replace(/\s*=\s*/g, ' == ');
     
     // Remove type casts
     condition = condition.replace(/::/g, '');
     
-    // Convert plain field references (but not request.auth.uid)
-    // Match word characters that are NOT preceded by "request." or "resource."
-    condition = condition.replace(/(?<!request\.)(?<!resource\.)(?<!data\.)(\b\w+\b)(?=\s*==)/g, (match) => {
-      // Don't replace if it's part of request.auth
-      if (condition.includes(`request.${match}`)) {
-        return match;
-      }
-      return `resource.data.${match}`;
-    });
-    
-    // Simplify
+    // Simplify if just true
     if (condition === 'true' || condition.trim() === '') {
       return 'true';
     }
