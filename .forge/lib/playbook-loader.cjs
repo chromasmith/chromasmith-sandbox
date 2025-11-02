@@ -85,11 +85,17 @@ async function loadPlaybook(options = {}) {
   let selectedIds = [];
   let tokenCount = 0;
   
-  // First pass: Always-load and force-load
+  // First pass: Always-load and force-load (with budget check)
   for (const chunk of scored) {
     if (chunk.priority === 'always_load' || forceLoad.includes(chunk.id)) {
-      selectedIds.push(chunk.id);
-      tokenCount += chunk.tokens;
+      // Check budget even for always-load
+      if (tokenCount + chunk.tokens <= maxTokens) {
+        selectedIds.push(chunk.id);
+        tokenCount += chunk.tokens;
+      } else {
+        // Log warning if always-load chunks exceed budget
+        console.warn(`Warning: Skipping ${chunk.id} (always_load) - would exceed budget`);
+      }
     }
   }
   
