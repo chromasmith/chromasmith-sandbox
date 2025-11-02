@@ -1,268 +1,169 @@
-/**
- * Tests for Observability Layer
- * Forge Flow 6.4 - T3.4
- */
-
-const fs = require('fs');
-const path = require('path');
-const { Logger, LogLevel, getLogger } = require('./logger.cjs');
-const { MetricsRegistry, MetricType, getMetrics } = require('./metrics.cjs');
-
-// Test log directory
-const TEST_LOG_DIR = '.forge/logs_test';
-
-// Cleanup helper
-function cleanup() {
-  try {
-    if (fs.existsSync(TEST_LOG_DIR)) {
-      fs.rmSync(TEST_LOG_DIR, { recursive: true, force: true });
-    }
-  } catch (error) {
-    // Ignore
-  }
-}
-
-// Test suite
-(async () => {
-  console.log('🧪 Testing Observability Layer...\n');
-  
-  let passed = 0;
-  let failed = 0;
-  
-  // Cleanup before tests
-  cleanup();
-  
-  // Test 1: Logger - Basic logging
-  try {
-    const logger = new Logger({
-      level: LogLevel.DEBUG,
-      enableConsole: false,
-      enableFile: false
-    });
-    
-    // Should not throw
-    logger.debug('Debug message');
-    logger.info('Info message');
-    logger.warn('Warn message');
-    logger.error('Error message');
-    logger.fatal('Fatal message');
-    
-    console.log('✅ Test 1: Logger basic logging');
-    passed++;
-  } catch (err) {
-    console.log('❌ Test 1: Logger basic logging -', err.message);
-    failed++;
-  }
-  
-  // Test 2: Logger - Context
-  try {
-    const logger = new Logger({ enableConsole: false, enableFile: false });
-    
-    logger.setContext({ service: 'test', version: '1.0' });
-    
-    // Create child with additional context
-    const child = logger.child({ requestId: '123' });
-    
-    if (!child.context.service) throw new Error('Missing parent context');
-    if (!child.context.requestId) throw new Error('Missing child context');
-    
-    console.log('✅ Test 2: Logger context and child');
-    passed++;
-  } catch (err) {
-    console.log('❌ Test 2: Logger context and child -', err.message);
-    failed++;
-  }
-  
-  // Test 3: Logger - Correlation ID
-  try {
-    const logger = new Logger({ enableConsole: false, enableFile: false });
-    
-    logger.setCorrelationId('corr-123');
-    
-    if (logger.correlationId !== 'corr-123') throw new Error('Correlation ID not set');
-    
-    logger.clearCorrelationId();
-    
-    if (logger.correlationId !== null) throw new Error('Correlation ID not cleared');
-    
-    console.log('✅ Test 3: Logger correlation ID');
-    passed++;
-  } catch (err) {
-    console.log('❌ Test 3: Logger correlation ID -', err.message);
-    failed++;
-  }
-  
-  // Test 4: Logger - File output
-  try {
-    const logger = new Logger({
-      level: LogLevel.INFO,
-      enableConsole: false,
-      enableFile: true,
-      logDir: TEST_LOG_DIR
-    });
-    
-    logger.info('Test log message', { foo: 'bar' });
-    
-    const logFile = path.join(TEST_LOG_DIR, 'forge-flow.log');
-    if (!fs.existsSync(logFile)) throw new Error('Log file not created');
-    
-    const content = fs.readFileSync(logFile, 'utf8');
-    if (!content.includes('Test log message')) throw new Error('Log message not found');
-    if (!content.includes('INFO')) throw new Error('Log level not found');
-    
-    console.log('✅ Test 4: Logger file output');
-    passed++;
-  } catch (err) {
-    console.log('❌ Test 4: Logger file output -', err.message);
-    failed++;
-  }
-  
-  // Test 5: Metrics - Counter
-  try {
-    const metrics = new MetricsRegistry();
-    
-    metrics.increment('test_counter');
-    metrics.increment('test_counter');
-    metrics.increment('test_counter', {}, 3);
-    
-    const all = metrics.getAll();
-    if (all.test_counter.value !== 5) {
-      throw new Error(`Expected 5, got ${all.test_counter.value}`);
-    }
-    
-    console.log('✅ Test 5: Metrics counter');
-    passed++;
-  } catch (err) {
-    console.log('❌ Test 5: Metrics counter -', err.message);
-    failed++;
-  }
-  
-  // Test 6: Metrics - Gauge
-  try {
-    const metrics = new MetricsRegistry();
-    
-    metrics.set('test_gauge', {}, 42);
-    metrics.set('test_gauge', {}, 100);
-    
-    const all = metrics.getAll();
-    if (all.test_gauge.value !== 100) {
-      throw new Error(`Expected 100, got ${all.test_gauge.value}`);
-    }
-    
-    console.log('✅ Test 6: Metrics gauge');
-    passed++;
-  } catch (err) {
-    console.log('❌ Test 6: Metrics gauge -', err.message);
-    failed++;
-  }
-  
-  // Test 7: Metrics - Histogram
-  try {
-    const metrics = new MetricsRegistry();
-    
-    metrics.record('test_histogram', {}, 10);
-    metrics.record('test_histogram', {}, 20);
-    metrics.record('test_histogram', {}, 30);
-    
-    const all = metrics.getAll();
-    const stats = all.test_histogram.value;
-    
-    if (stats.count !== 3) throw new Error('Wrong count');
-    if (stats.min !== 10) throw new Error('Wrong min');
-    if (stats.max !== 30) throw new Error('Wrong max');
-    if (stats.avg !== 20) throw new Error('Wrong avg');
-    
-    console.log('✅ Test 7: Metrics histogram');
-    passed++;
-  } catch (err) {
-    console.log('❌ Test 7: Metrics histogram -', err.message);
-    failed++;
-  }
-  
-  // Test 8: Metrics - Timer
-  try {
-    const metrics = new MetricsRegistry();
-    
-    const timer = metrics.startTimer('test_timer');
-    
-    // Simulate work
-    await new Promise(resolve => setTimeout(resolve, 10));
-    
-    const duration = timer();
-    
-    if (duration < 10) throw new Error('Duration too short');
-    
-    const all = metrics.getAll();
-    if (all.test_timer.value.count !== 1) throw new Error('Timer not recorded');
-    
-    console.log('✅ Test 8: Metrics timer');
-    passed++;
-  } catch (err) {
-    console.log('❌ Test 8: Metrics timer -', err.message);
-    failed++;
-  }
-  
-  // Test 9: Metrics - Labels
-  try {
-    const metrics = new MetricsRegistry();
-    
-    metrics.increment('test_labeled', { status: 'success' });
-    metrics.increment('test_labeled', { status: 'failure' });
-    metrics.increment('test_labeled', { status: 'success' });
-    
-    const all = metrics.getAll();
-    
-    if (!all.test_labeled.labels) throw new Error('Labels not found');
-    
-    const successLabel = Object.values(all.test_labeled.labels).find(
-      l => l.labels.status === 'success'
-    );
-    const failureLabel = Object.values(all.test_labeled.labels).find(
-      l => l.labels.status === 'failure'
-    );
-    
-    if (successLabel.value !== 2) throw new Error('Wrong success count');
-    if (failureLabel.value !== 1) throw new Error('Wrong failure count');
-    
-    console.log('✅ Test 9: Metrics with labels');
-    passed++;
-  } catch (err) {
-    console.log('❌ Test 9: Metrics with labels -', err.message);
-    failed++;
-  }
-  
-  // Test 10: Prometheus export
-  try {
-    const metrics = new MetricsRegistry();
-    
-    metrics.increment('http_requests_total', { method: 'GET' }, 5);
-    metrics.record('http_duration_ms', { method: 'GET' }, 100);
-    
-    const prometheus = metrics.exportPrometheus();
-    
-    if (!prometheus.includes('http_requests_total')) throw new Error('Missing counter');
-    if (!prometheus.includes('http_duration_ms')) throw new Error('Missing histogram');
-    if (!prometheus.includes('# HELP')) throw new Error('Missing help text');
-    if (!prometheus.includes('# TYPE')) throw new Error('Missing type text');
-    
-    console.log('✅ Test 10: Prometheus export');
-    passed++;
-  } catch (err) {
-    console.log('❌ Test 10: Prometheus export -', err.message);
-    failed++;
-  }
-  
-  // Cleanup after tests
-  cleanup();
-  
-  // Summary
-  console.log(`\n${'='.repeat(50)}`);
-  console.log(`✅ Passed: ${passed}/10`);
-  console.log(`❌ Failed: ${failed}/10`);
-  console.log(`${'='.repeat(50)}`);
-  
-  if (failed > 0) {
-    process.exit(1);
-  }
-  
-})();
+LyoqCiAqIFRlc3RzIGZvciBPYnNlcnZhYmlsaXR5IExheWVyCiAqIEZvcmdl
+IEZsb3cgNi40IC0gVDMuNAogKi8KCmNvbnN0IGZzID0gcmVxdWlyZSgnZnMn
+KTsKY29uc3QgcGF0aCA9IHJlcXVpcmUoJ3BhdGgnKTsKY29uc3QgeyBMb2dn
+ZXIsIExvZ0xldmVsLCBnZXRMb2dnZXIgfSA9IHJlcXVpcmUoJy4vbG9nZ2Vy
+LmNqcycpOwpjb25zdCB7IE1ldHJpY3NSZWdpc3RyeSwgTWV0cmljVHlwZSwg
+Z2V0TWV0cmljcyB9ID0gcmVxdWlyZSgnLi9tZXRyaWNzLmNqcycpOwoKLy8g
+VGVzdCBsb2cgZGlyZWN0b3J5CmNvbnN0IFRFU1RfTE9HX0RJUiA9ICcuZm9y
+Z2UvbG9nc190ZXN0JzsKCi8vIENsZWFudXAgaGVscGVyCmZ1bmN0aW9uIGNs
+ZWFudXAoKSB7CiAgdHJ5IHsKICAgIGlmIChmcy5leGlzdHNTeW5jKFRFU1Rf
+TE9HX0RJUikpIHsKICAgICAgZnMucm1TeW5jKFRFU1RfTE9HX0RJUiwgeyBy
+ZWN1cnNpdmU6IHRydWUsIGZvcmNlOiB0cnVlIH0pOwogICAgfQogIH0gY2F0
+Y2ggKGVycm9yKSB7CiAgICAvLyBJZ25vcmUKICB9Cn0KCi8vIFRlc3Qgc3Vp
+dGUKKGFzeW5jICgpID0+IHsKICBjb25zb2xlLmxvZygn8J+nqiBUZXN0aW5n
+IE9ic2VydmFiaWxpdHkgTGF5ZXIuLi5cbicpOwogIAogIGxldCBwYXNzZWQg
+PSAwOwogIGxldCBmYWlsZWQgPSAwOwogIAogIC8vIENsZWFudXAgYmVmb3Jl
+IHRlc3RzCiAgY2xlYW51cCgpOwogIAogIC8vIFRlc3QgMTogTG9nZ2VyIC0g
+QmFzaWMgbG9nZ2luZwogIHRyeSB7CiAgICBjb25zdCBsb2dnZXIgPSBuZXcg
+TG9nZ2VyKHsKICAgICAgbGV2ZWw6IExvZ0xldmVsLkRFQlVHLAogICAgICBl
+bmFibGVDb25zb2xlOiBmYWxzZSwKICAgICAgZW5hYmxlRmlsZTogZmFsc2UK
+ICAgIH0pOwogICAgCiAgICAvLyBTaG91bGQgbm90IHRocm93CiAgICBsb2dn
+ZXIuZGVidWcoJ0RlYnVnIG1lc3NhZ2UnKTsKICAgIGxvZ2dlci5pbmZvKCdJ
+bmZvIG1lc3NhZ2UnKTsKICAgIGxvZ2dlci53YXJuKCdXYXJuIG1lc3NhZ2Un
+KTsKICAgIGxvZ2dlci5lcnJvcignRXJyb3IgbWVzc2FnZScpOwogICAgbG9n
+Z2VyLmZhdGFsKCdGYXRhbCBtZXNzYWdlJyk7CiAgICAKICAgIGNvbnNvbGUu
+bG9nKCfinIUgVGVzdCAxOiBMb2dnZXIgYmFzaWMgbG9nZ2luZycpOwogICAg
+cGFzc2VkKys7CiAgfSBjYXRjaCAoZXJyKSB7CiAgICBjb25zb2xlLmxvZygn
+4p2MIFRlc3QgMTogTG9nZ2VyIGJhc2ljIGxvZ2dpbmcgLScsIGVyci5tZXNz
+YWdlKTsKICAgIGZhaWxlZCsrOwogIH0KICAKICAvLyBUZXN0IDI6IExvZ2dl
+ciAtIENvbnRleHQKICB0cnkgewogICAgY29uc3QgbG9nZ2VyID0gbmV3IExv
+Z2dlcih7IGVuYWJsZUNvbnNvbGU6IGZhbHNlLCBlbmFibGVGaWxlOiBmYWxz
+ZSB9KTsKICAgIAogICAgbG9nZ2VyLnNldENvbnRleHQoeyBzZXJ2aWNlOiAn
+dGVzdCcsIHZlcnNpb246ICcxLjAnIH0pOwogICAgCiAgICAvLyBDcmVhdGUg
+Y2hpbGQgd2l0aCBhZGRpdGlvbmFsIGNvbnRleHQKICAgIGNvbnN0IGNoaWxk
+ID0gbG9nZ2VyLmNoaWxkKHsgcmVxdWVzdElkOiAnMTIzJyB9KTsKICAgIAog
+ICAgaWYgKCFjaGlsZC5jb250ZXh0LnNlcnZpY2UpIHRocm93IG5ldyBFcnJv
+cignTWlzc2luZyBwYXJlbnQgY29udGV4dCcpOwogICAgaWYgKCFjaGlsZC5j
+b250ZXh0LnJlcXVlc3RJZCkgdGhyb3cgbmV3IEVycm9yKCdNaXNzaW5nIGNo
+aWxkIGNvbnRleHQnKTsKICAgIAogICAgY29uc29sZS5sb2coJ+KchSBUZXN0
+IDI6IExvZ2dlciBjb250ZXh0IGFuZCBjaGlsZCcpOwogICAgcGFzc2VkKys7
+CiAgfSBjYXRjaCAoZXJyKSB7CiAgICBjb25zb2xlLmxvZygn4p2MIFRlc3Qg
+MjogTG9nZ2VyIGNvbnRleHQgYW5kIGNoaWxkIC0nLCBlcnIubWVzc2FnZSk7
+CiAgICBmYWlsZWQrKzsKICB9CiAgCiAgLy8gVGVzdCAzOiBMb2dnZXIgLSBD
+b3JyZWxhdGlvbiBJRAogIHRyeSB7CiAgICBjb25zdCBsb2dnZXIgPSBuZXcg
+TG9nZ2VyKHsgZW5hYmxlQ29uc29sZTogZmFsc2UsIGVuYWJsZUZpbGU6IGZh
+bHNlIH0pOwogICAgCiAgICBsb2dnZXIuc2V0Q29ycmVsYXRpb25JZCgnY29y
+ci0xMjMnKTsKICAgIAogICAgaWYgKGxvZ2dlci5jb3JyZWxhdGlvbklkICE9
+PSAnY29yci0xMjMnKSB0aHJvdyBuZXcgRXJyb3IoJ0NvcnJlbGF0aW9uIElE
+IG5vdCBzZXQnKTsKICAgIAogICAgbG9nZ2VyLmNsZWFyQ29ycmVsYXRpb25J
+ZCgpOwogICAgCiAgICBpZiAobG9nZ2VyLmNvcnJlbGF0aW9uSWQgIT09IG51
+bGwpIHRocm93IG5ldyBFcnJvcignQ29ycmVsYXRpb24gSUQgbm90IGNsZWFy
+ZWQnKTsKICAgIAogICAgY29uc29sZS5sb2coJ+KchSBUZXN0IDM6IExvZ2dl
+ciBjb3JyZWxhdGlvbiBJRCcpOwogICAgcGFzc2VkKys7CiAgfSBjYXRjaCAo
+ZXJyKSB7CiAgICBjb25zb2xlLmxvZygn4p2MIFRlc3QgMzogTG9nZ2VyIGNv
+cnJlbGF0aW9uIElEIC0nLCBlcnIubWVzc2FnZSk7CiAgICBmYWlsZWQrKzsK
+ICB9CiAgCiAgLy8gVGVzdCA0OiBMb2dnZXIgLSBGaWxlIG91dHB1dAogIHRy
+eSB7CiAgICBjb25zdCBsb2dnZXIgPSBuZXcgTG9nZ2VyKHsKICAgICAgbGV2
+ZWw6IExvZ0xldmVsLklORk8sCiAgICAgIGVuYWJsZUNvbnNvbGU6IGZhbHNl
+LAogICAgICBlbmFibGVGaWxlOiB0cnVlLAogICAgICBsb2dEaXI6IFRFU1Rf
+TE9HX0RJUgogICAgfSk7CiAgICAKICAgIGxvZ2dlci5pbmZvKCdUZXN0IGxv
+ZyBtZXNzYWdlJywgeyBmb286ICdiYXInIH0pOwogICAgCiAgICBjb25zdCBs
+b2dGaWxlID0gcGF0aC5qb2luKFRFU1RfTE9HX0RJUiwgJ2ZvcmdlLWZsb3cu
+bG9nJyk7CiAgICBpZiAoIWZzLmV4aXN0c1N5bmMobG9nRmlsZSkpIHRocm93
+IG5ldyBFcnJvcignTG9nIGZpbGUgbm90IGNyZWF0ZWQnKTsKICAgIAogICAg
+Y29uc3QgY29udGVudCA9IGZzLnJlYWRGaWxlU3luYyhsb2dGaWxlLCAndXRm
+OCcpOwogICAgaWYgKCFjb250ZW50LmluY2x1ZGVzKCdUZXN0IGxvZyBtZXNz
+YWdlJykpIHRocm93IG5ldyBFcnJvcignTG9nIG1lc3NhZ2Ugbm90IGZvdW5k
+Jyk7CiAgICBpZiAoIWNvbnRlbnQuaW5jbHVkZXMoJ0lORk8nKSkgdGhyb3cg
+bmV3IEVycm9yKCdMb2cgbGV2ZWwgbm90IGZvdW5kJyk7CiAgICAKICAgIGNv
+bnNvbGUubG9nKCfinIUgVGVzdCA0OiBMb2dnZXIgZmlsZSBvdXRwdXQnKTsK
+ICAgIHBhc3NlZCsrOwogIH0gY2F0Y2ggKGVycikgewogICAgY29uc29sZS5s
+b2coJ+KdjCBUZXN0IDQ6IExvZ2dlciBmaWxlIG91dHB1dCAtJywgZXJyLm1l
+c3NhZ2UpOwogICAgZmFpbGVkKys7CiAgfQogIAogIC8vIFRlc3QgNTogTWV0
+cmljcyAtIENvdW50ZXIKICB0cnkgewogICAgY29uc3QgbWV0cmljcyA9IG5l
+dyBNZXRyaWNzUmVnaXN0cnkoKTsKICAgIAogICAgbWV0cmljcy5pbmNyZW1l
+bnQoJ3Rlc3RfY291bnRlcicpOwogICAgbWV0cmljcy5pbmNyZW1lbnQoJ3Rl
+c3RfY291bnRlcicpOwogICAgbWV0cmljcy5pbmNyZW1lbnQoJ3Rlc3RfY291
+bnRlcicsIHt9LCAzKTsKICAgIAogICAgY29uc3QgYWxsID0gbWV0cmljcy5n
+ZXRBbGwoKTsKICAgIGlmIChhbGwudGVzdF9jb3VudGVyLnZhbHVlICE9PSA1
+KSB7CiAgICAgIHRocm93IG5ldyBFcnJvcihgRXhwZWN0ZWQgNSwgZ290ICR7
+YWxsLnRlc3RfY291bnRlci52YWx1ZX1gKTsKICAgIH0KICAgIAogICAgY29u
+c29sZS5sb2coJ+KchSBUZXN0IDU6IE1ldHJpY3MgY291bnRlcicpOwogICAg
+cGFzc2VkKys7CiAgfSBjYXRjaCAoZXJyKSB7CiAgICBjb25zb2xlLmxvZygn
+4p2MIFRlc3QgNTogTWV0cmljcyBjb3VudGVyIC0nLCBlcnIubWVzc2FnZSk7
+CiAgICBmYWlsZWQrKzsKICB9CiAgCiAgLy8gVGVzdCA2OiBNZXRyaWNzIC0g
+R2F1Z2UKICB0cnkgewogICAgY29uc3QgbWV0cmljcyA9IG5ldyBNZXRyaWNz
+UmVnaXN0cnkoKTsKICAgIAogICAgbWV0cmljcy5zZXQoJ3Rlc3RfZ2F1Z2Un
+LCB7fSwgNDIpOwogICAgbWV0cmljcy5zZXQoJ3Rlc3RfZ2F1Z2UnLCB7fSwg
+MTAwKTsKICAgIAogICAgY29uc3QgYWxsID0gbWV0cmljcy5nZXRBbGwoKTsK
+ICAgIGlmIChhbGwudGVzdF9nYXVnZS52YWx1ZSAhPT0gMTAwKSB7CiAgICAg
+IHRocm93IG5ldyBFcnJvcihgRXhwZWN0ZWQgMTAwLCBnb3QgJHthbGwudGVz
+dF9nYXVnZS52YWx1ZX1gKTsKICAgIH0KICAgIAogICAgY29uc29sZS5sb2co
+J+KchSBUZXN0IDY6IE1ldHJpY3MgZ2F1Z2UnKTsKICAgIHBhc3NlZCsrOwog
+IH0gY2F0Y2ggKGVycikgewogICAgY29uc29sZS5sb2coJ+KdjCBUZXN0IDY6
+IE1ldHJpY3MgZ2F1Z2UgLScsIGVyci5tZXNzYWdlKTsKICAgIGZhaWxlZCsr
+OwogIH0KICAKICAvLyBUZXN0IDc6IE1ldHJpY3MgLSBIaXN0b2dyYW0KICB0
+cnkgewogICAgY29uc3QgbWV0cmljcyA9IG5ldyBNZXRyaWNzUmVnaXN0cnko
+KTsKICAgIAogICAgbWV0cmljcy5yZWNvcmQoJ3Rlc3RfaGlzdG9ncmFtJywg
+e30sIDEwKTsKICAgIG1ldHJpY3MucmVjb3JkKCd0ZXN0X2hpc3RvZ3JhbScs
+IHt9LCAyMCk7CiAgICBtZXRyaWNzLnJlY29yZCgndGVzdF9oaXN0b2dyYW0n
+LCB7fSwgMzApOwogICAgCiAgICBjb25zdCBhbGwgPSBtZXRyaWNzLmdldEFs
+bCgpOwogICAgY29uc3Qgc3RhdHMgPSBhbGwudGVzdF9oaXN0b2dyYW0udmFs
+dWU7CiAgICAKICAgIGlmIChzdGF0cy5jb3VudCAhPT0gMykgdGhyb3cgbmV3
+IEVycm9yKCdXcm9uZyBjb3VudCcpOwogICAgaWYgKHN0YXRzLm1pbiAhPT0g
+MTApIHRocm93IG5ldyBFcnJvcignV3JvbmcgbWluJyk7CiAgICBpZiAoc3Rh
+dHMubWF4ICE9PSAzMCkgdGhyb3cgbmV3IEVycm9yKCdXcm9uZyBtYXgnKTsK
+ICAgIGlmIChzdGF0cy5hdmcgIT09IDIwKSB0aHJvdyBuZXcgRXJyb3IoJ1dy
+b25nIGF2ZycpOwogICAgCiAgICBjb25zb2xlLmxvZygn4pyFIFRlc3QgNzog
+TWV0cmljcyBoaXN0b2dyYW0nKTsKICAgIHBhc3NlZCsrOwogIH0gY2F0Y2gg
+KGVycikgewogICAgY29uc29sZS5sb2coJ+KdjCBUZXN0IDc6IE1ldHJpY3Mg
+aGlzdG9ncmFtIC0nLCBlcnIubWVzc2FnZSk7CiAgICBmYWlsZWQrKzsKICB9
+CiAgCiAgLy8gVGVzdCA4OiBNZXRyaWNzIC0gVGltZXIKICB0cnkgewogICAg
+Y29uc3QgbWV0cmljcyA9IG5ldyBNZXRyaWNzUmVnaXN0cnkoKTsKICAgIAog
+ICAgY29uc3QgdGltZXIgPSBtZXRyaWNzLnN0YXJ0VGltZXIoJ3Rlc3RfdGlt
+ZXInKTsKICAgIAogICAgLy8gU2ltdWxhdGUgd29yawogICAgYXdhaXQgbmV3
+IFByb21pc2UocmVzb2x2ZSA9PiBzZXRUaW1lb3V0KHJlc29sdmUsIDEwKSk7
+CiAgICAKICAgIGNvbnN0IGR1cmF0aW9uID0gdGltZXIoKTsKICAgIAogICAg
+aWYgKGR1cmF0aW9uIDwgMTApIHRocm93IG5ldyBFcnJvcignRHVyYXRpb24g
+dG9vIHNob3J0Jyk7CiAgICAKICAgIGNvbnN0IGFsbCA9IG1ldHJpY3MuZ2V0
+QWxsKCk7CiAgICBpZiAoYWxsLnRlc3RfdGltZXIudmFsdWUuY291bnQgIT09
+IDEpIHRocm93IG5ldyBFcnJvcignVGltZXIgbm90IHJlY29yZGVkJyk7CiAg
+ICAKICAgIGNvbnNvbGUubG9nKCfinIUgVGVzdCA4OiBNZXRyaWNzIHRpbWVy
+Jyk7CiAgICBwYXNzZWQrKzsKICB9IGNhdGNoIChlcnIpIHsKICAgIGNvbnNv
+bGUubG9nKCfinYwgVGVzdCA4OiBNZXRyaWNzIHRpbWVyIC0nLCBlcnIubWVz
+c2FnZSk7CiAgICBmYWlsZWQrKzsKICB9CiAgCiAgLy8gVGVzdCA5OiBNZXRy
+aWNzIC0gTGFiZWxzCiAgdHJ5IHsKICAgIGNvbnN0IG1ldHJpY3MgPSBuZXcg
+TWV0cmljc1JlZ2lzdHJ5KCk7CiAgICAKICAgIG1ldHJpY3MuaW5jcmVtZW50
+KCd0ZXN0X2xhYmVsZWQnLCB7IHN0YXR1czogJ3N1Y2Nlc3MnIH0pOwogICAg
+bWV0cmljcy5pbmNyZW1lbnQoJ3Rlc3RfbGFiZWxlZCcsIHsgc3RhdHVzOiAn
+ZmFpbHVyZScgfSk7CiAgICBtZXRyaWNzLmluY3JlbWVudCgndGVzdF9sYWJl
+bGVkJywgeyBzdGF0dXM6ICdzdWNjZXNzJyB9KTsKICAgIAogICAgY29uc3Qg
+YWxsID0gbWV0cmljcy5nZXRBbGwoKTsKICAgIAogICAgaWYgKCFhbGwudGVz
+dF9sYWJlbGVkLmxhYmVscykgdGhyb3cgbmV3IEVycm9yKCdMYWJlbHMgbm90
+IGZvdW5kJyk7CiAgICAKICAgIGNvbnN0IHN1Y2Nlc3NMYWJlbCA9IE9iamVj
+dC52YWx1ZXMoYWxsLnRlc3RfbGFiZWxlZC5sYWJlbHMpLmZpbmQoCiAgICAg
+IGwgPT4gbC5sYWJlbHMuc3RhdHVzID09PSAnc3VjY2VzcycKICAgICk7CiAg
+ICBjb25zdCBmYWlsdXJlTGFiZWwgPSBPYmplY3QudmFsdWVzKGFsbC50ZXN0
+X2xhYmVsZWQubGFiZWxzKS5maW5kKAogICAgICBsID0+IGwubGFiZWxzLnN0
+YXR1cyA9PT0gJ2ZhaWx1cmUnCiAgICApOwogICAgCiAgICBpZiAoc3VjY2Vz
+c0xhYmVsLnZhbHVlICE9PSAyKSB0aHJvdyBuZXcgRXJyb3IoJ1dyb25nIHN1
+Y2Nlc3MgY291bnQnKTsKICAgIGlmIChmYWlsdXJlTGFiZWwudmFsdWUgIT09
+IDEpIHRocm93IG5ldyBFcnJvcignV3JvbmcgZmFpbHVyZSBjb3VudCcpOwog
+ICAgCiAgICBjb25zb2xlLmxvZygn4pyFIFRlc3QgOTogTWV0cmljcyB3aXRo
+IGxhYmVscycpOwogICAgcGFzc2VkKys7CiAgfSBjYXRjaCAoZXJyKSB7CiAg
+ICBjb25zb2xlLmxvZygn4p2MIFRlc3QgOTogTWV0cmljcyB3aXRoIGxhYmVs
+cyAtJywgZXJyLm1lc3NhZ2UpOwogICAgZmFpbGVkKys7CiAgfQogIAogIC8v
+IFRlc3QgMTA6IFByb21ldGhldXMgZXhwb3J0CiAgdHJ5IHsKICAgIGNvbnN0
+IG1ldHJpY3MgPSBuZXcgTWV0cmljc1JlZ2lzdHJ5KCk7CiAgICAKICAgIG1l
+dHJpY3MuaW5jcmVtZW50KCdodHRwX3JlcXVlc3RzX3RvdGFsJywgeyBtZXRo
+b2Q6ICdHRVQnIH0sIDUpOwogICAgbWV0cmljcy5yZWNvcmQoJ2h0dHBfZHVy
+YXRpb25fbXMnLCB7IG1ldGhvZDogJ0dFVCcgfSwgMTAwKTsKICAgIAogICAg
+Y29uc3QgcHJvbWV0aGV1cyA9IG1ldHJpY3MuZXhwb3J0UHJvbWV0aGV1cygp
+OwogICAgCiAgICBpZiAoIXByb21ldGhldXMuaW5jbHVkZXMoJ2h0dHBfcmVx
+dWVzdHNfdG90YWwnKSkgdGhyb3cgbmV3IEVycm9yKCdNaXNzaW5nIGNvdW50
+ZXInKTsKICAgIGlmICghcHJvbWV0aGV1cy5pbmNsdWRlcygnaHR0cF9kdXJh
+dGlvbl9tcycpKSB0aHJvdyBuZXcgRXJyb3IoJ01pc3NpbmcgaGlzdG9ncmFt
+Jyk7CiAgICBpZiAoIXByb21ldGhldXMuaW5jbHVkZXMoJyMgSEVMUCcpKSB0
+aHJvdyBuZXcgRXJyb3IoJ01pc3NpbmcgaGVscCB0ZXh0Jyk7CiAgICBpZiAo
+IXByb21ldGhldXMuaW5jbHVkZXMoJyMgVFlQRScpKSB0aHJvdyBuZXcgRXJy
+b3IoJ01pc3NpbmcgdHlwZSB0ZXh0Jyk7CiAgICAKICAgIGNvbnNvbGUubG9n
+KCfinIUgVGVzdCAxMDogUHJvbWV0aGV1cyBleHBvcnQnKTsKICAgIHBhc3Nl
+ZCsrOwogIH0gY2F0Y2ggKGVycikgewogICAgY29uc29sZS5sb2coJ+KdjCBU
+ZXN0IDEwOiBQcm9tZXRoZXVzIGV4cG9ydCAtJywgZXJyLm1lc3NhZ2UpOwog
+ICAgZmFpbGVkKys7CiAgfQogIAogIC8vIENsZWFudXAgYWZ0ZXIgdGVzdHMK
+ICBjbGVhbnVwKCk7CiAgCiAgLy8gU3VtbWFyeQogIGNvbnNvbGUubG9nKGBc
+biR7Jz0nLnJlcGVhdCg1MCl9YCk7CiAgY29uc29sZS5sb2coYOKchSBQYXNz
+ZWQ6ICR7cGFzc2VkfS8xMGApOwogIGNvbnNvbGUubG9nKGDinYwgRmFpbGVk
+OiAke2ZhaWxlZH0vMTBgKTsKICBjb25zb2xlLmxvZyhgJHsnPScucmVwZWF0
+KDUwKX1gKTsKICAKICBpZiAoZmFpbGVkID4gMCkgewogICAgcHJvY2Vzcy5l
+eGl0KDEpOwogIH0KICAKfSkoKTsK
