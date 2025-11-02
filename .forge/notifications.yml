@@ -1,0 +1,67 @@
+# Notification Policy Configuration
+# Defines how and when notifications are sent
+
+version: "1.0"
+
+aggregation:
+  enabled: true
+  windows:
+    incidents:
+      duration_minutes: 60
+      max_count: 10
+    failures:
+      duration_minutes: 30
+      max_count: 5
+    deployments:
+      duration_minutes: 15
+      max_count: 3
+
+channels:
+  email:
+    enabled: false
+    recipients: []
+  slack:
+    enabled: false
+    webhook_url: null
+  console:
+    enabled: true
+    verbose: true
+
+rules:
+  - event_type: "incident.critical"
+    channels: ["email", "slack", "console"]
+    immediate: true
+    aggregation: false
+  
+  - event_type: "incident.high"
+    channels: ["slack", "console"]
+    immediate: false
+    aggregation: true
+    window: "incidents"
+  
+  - event_type: "deployment.success"
+    channels: ["console"]
+    immediate: false
+    aggregation: true
+    window: "deployments"
+  
+  - event_type: "deployment.failure"
+    channels: ["email", "slack", "console"]
+    immediate: true
+    aggregation: false
+  
+  - event_type: "circuit_breaker.open"
+    channels: ["email", "slack", "console"]
+    immediate: true
+    aggregation: false
+  
+  - event_type: "safe_mode.entered"
+    channels: ["email", "console"]
+    immediate: true
+    aggregation: false
+  
+  - event_type: "validation.failure"
+    channels: ["console"]
+    immediate: false
+    aggregation: true
+    window: "failures"
