@@ -129,7 +129,7 @@ class NotificationManager {
     return { sent: true, channel: 'slack' };
   }
   
-  async flushWindow(windowName) {
+  async flushWindow(windowName, options = {}) {
     await this.loadConfig();
     await this.loadQueue();
     
@@ -145,17 +145,18 @@ class NotificationManager {
       return { flushed: 0, window: windowName };
     }
     
-    // Check if window criteria met
+    // Check if window criteria met (unless force=true)
     const oldestTimestamp = new Date(notifications[0].timestamp);
     const now = new Date();
     const ageMinutes = (now - oldestTimestamp) / (1000 * 60);
     
     const shouldFlush = 
+      options.force === true ||
       notifications.length >= windowConfig.max_count ||
       ageMinutes >= windowConfig.duration_minutes;
     
     if (!shouldFlush) {
-      return { flushed: 0, window: windowName, reason: 'Window criteria not met' };
+      return { flushed: 0, window: windowName, reason: 'Window criteria not met', count: notifications.length };
     }
     
     // Send aggregated notification
