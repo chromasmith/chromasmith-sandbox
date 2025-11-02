@@ -64,27 +64,35 @@ function parseRLS(sql) {
   const opMatch = sql.match(/FOR\s+(SELECT|INSERT|UPDATE|DELETE|ALL)/i);
   const operation = opMatch ? opMatch[1].toUpperCase() : 'ALL';
   
-  // Extract USING clause
+  // Extract USING clause (optional for INSERT with WITH CHECK)
+  let usingAST = null;
   const usingIndex = sql.indexOf('USING');
-  if (usingIndex === -1) {
-    throw new Error('Policy must have USING clause');
-  }
-  
-  const usingCondition = extractBalancedParens(sql, usingIndex + 5);
-  if (!usingCondition) {
-    throw new Error('Could not extract USING condition');
+  if (usingIndex !== -1) {
+    const usingCondition = extractBalancedParens(sql, usingIndex + 5);
+    if (usingCondition) {
+      usingAST = parseCondition(usingCondition);
+    }
   }
   
   // Extract WITH CHECK clause (optional)
-  let withCheckCondition = null;
+  let withCheckAST = null;
   const withCheckIndex = sql.indexOf('WITH CHECK');
   if (withCheckIndex !== -1) {
-    withCheckCondition = extractBalancedParens(sql, withCheckIndex + 10);
+    const withCheckCondition = extractBalancedParens(sql, withCheckIndex + 10);
+    if (withCheckCondition) {
+      withCheckAST = parseCondition(withCheckCondition);
+    }
   }
   
-  // Parse conditions into AST
-  const usingAST = parseCondition(usingCondition);
-  const withCheckAST = withCheckCondition ? parseCondition(withCheckCondition) : null;
+  // Policy must have at least USING or WITH CHECK
+  if (!usingAST && !withCheckAST) {
+    throw new Error('Policy must have USING or WITH CHECK clause');
+  }
+  
+  // If only WITH CHECK, use it for USING as well (common for INSERT)
+  if (!usingAST && withCheckAST) {
+    usingAST = withCheckAST;
+  }
   
   return createPolicy(policyName, tableName, operation, usingAST, withCheckAST);
 }
@@ -95,6 +103,17 @@ function parseRLS(sql) {
  */
 function parseCondition(condition) {
   condition = condition.trim();
+  
+  // Strip outer parentheses if they wrap the entire condition
+  while (condition.startsWith('(') && condition.endsWith(')')) {
+    const inner = extractBalancedParens(condition, 0);
+    // Only strip if the parens wrap the entire expression
+    if (inner.length === condition.length - 2) {
+      condition = inner.trim();
+    } else {
+      break;
+    }
+  }
   
   // Handle logical operators (AND, OR) - split at top level only
   const logicalOp = findTopLevelLogical(condition);
@@ -112,11 +131,6 @@ function parseCondition(condition) {
   // Handle NOT
   if (condition.toUpperCase().startsWith('NOT ')) {
     const inner = condition.substring(4).trim();
-    // If inner starts with (, extract balanced content
-    if (inner.startsWith('(')) {
-      const innerCondition = extractBalancedParens(inner, 0);
-      return createLogical(LogicalOp.NOT, parseCondition(innerCondition));
-    }
     return createLogical(LogicalOp.NOT, parseCondition(inner));
   }
   
@@ -141,7 +155,7 @@ function findTopLevelLogical(condition) {
     else if (condition[i] === ')') depth--;
     else if (depth === 0) {
       // Check for AND
-      if (upper.substring(i, i + 4) === ' AND ') {
+      if (upper.substring(i, i + 5) === ' AND ') {
         return { operator: 'AND', index: i };
       }
       // Check for OR
