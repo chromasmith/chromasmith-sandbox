@@ -1,5 +1,5 @@
 // Ntendril Firestore Security Rules Converter
-// UNIVERSAL: Converts ANY Postgres RLS policy to Firestore security rules
+// SYSTEMATIC FIX: Proper field qualification without breaking paths
 
 const fs = require('fs').promises;
 const path = require('path');
@@ -12,20 +12,16 @@ class FirestoreConverter {
   async convertRLSToRules(rlsSQL) {
     const policies = this.parseRLSPolicies(rlsSQL);
     const rules = this.generateFirestoreRules(policies);
-    
     return rules;
   }
   
   parseRLSPolicies(sql) {
     const policies = [];
-    
-    // Match CREATE POLICY statements
     const policyRegex = /CREATE POLICY (\w+) ON (\w+)\s+(?:FOR (\w+))?\s+(?:TO (\w+))?\s+(?:USING \((.*?)\))?\s*(?:WITH CHECK \((.*?)\))?/gi;
     
     let match;
     while ((match = policyRegex.exec(sql)) !== null) {
       const [_, name, table, command, role, using, withCheck] = match;
-      
       policies.push({
         name,
         collection: table,
@@ -34,20 +30,14 @@ class FirestoreConverter {
         using: using || 'true',
         withCheck: withCheck || using || 'true'
       });
-      
       this.collections.add(table);
     }
-    
     return policies;
   }
   
   generateFirestoreRules(policies) {
-    let rules = `rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-`;
+    let rules = `rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n`;
     
-    // Group policies by collection
     const byCollection = {};
     for (const policy of policies) {
       if (!byCollection[policy.collection]) {
@@ -56,53 +46,40 @@ service cloud.firestore {
       byCollection[policy.collection].push(policy);
     }
     
-    // Generate rules for each collection
     for (const [collection, collectionPolicies] of Object.entries(byCollection)) {
       rules += this.generateCollectionRules(collection, collectionPolicies);
     }
     
-    rules += `  }
-}`;
-    
+    rules += `  }\n}`;
     return rules;
   }
   
   generateCollectionRules(collection, policies) {
-    let rules = `
-    // Rules for ${collection}
-    match /${collection}/{docId} {
-`;
+    let rules = `\n    // Rules for ${collection}\n    match /${collection}/{docId} {\n`;
     
-    // Separate by command type
     const readPolicies = policies.filter(p => ['SELECT', 'ALL'].includes(p.command));
     const writePolicies = policies.filter(p => ['INSERT', 'UPDATE', 'DELETE', 'ALL'].includes(p.command));
     
-    // Generate read rules
     if (readPolicies.length > 0) {
       const readConditions = readPolicies.map(p => this.convertCondition(p.using));
       rules += `      allow read: if ${this.combineConditions(readConditions, 'OR')};\n`;
     }
     
-    // Generate write rules
     if (writePolicies.length > 0) {
       const writeConditions = writePolicies.map(p => this.convertCondition(p.withCheck));
       rules += `      allow write: if ${this.combineConditions(writeConditions, 'OR')};\n`;
     }
     
-    rules += `    }
-`;
-    
+    rules += `    }\n`;
     return rules;
   }
   
   convertCondition(sqlCondition) {
-    // SYSTEMATIC UNIVERSAL CONVERSION
-    
     let condition = sqlCondition.trim();
     
-    // Step 1: Convert auth functions FIRST
-    condition = condition.replace(/\bauth\.uid\(\)/g, 'request.auth.uid');
-    condition = condition.replace(/\bcurrent_user\b/g, 'request.auth.uid');
+    // Step 1: Convert auth - do this FIRST and PROTECT it
+    condition = condition.replace(/\bauth\.uid\(\)/g, '<<REQUEST_AUTH_UID>>');
+    condition = condition.replace(/\bcurrent_user\b/g, '<<REQUEST_AUTH_UID>>');
     
     // Step 2: Convert operators
     condition = condition.replace(/\s*=\s*/g, ' == ');
@@ -110,30 +87,22 @@ service cloud.firestore {
     // Step 3: Remove type casts
     condition = condition.replace(/::\w+/g, '');
     
-    // Step 4: Qualify bare field references
-    // Match word identifiers that are NOT already qualified
-    condition = condition.replace(/\b(\w+)\b/g, (match) => {
-      // Skip if already part of a qualified path
-      const beforeMatch = condition.substring(0, condition.indexOf(match));
-      if (beforeMatch.endsWith('request.') || 
-          beforeMatch.endsWith('resource.') || 
-          beforeMatch.endsWith('data.')) {
-        return match;
-      }
+    // Step 4: Qualify bare field names (but NOT parts of paths)
+    // Use negative lookbehind/lookahead to avoid matching words that are part of paths
+    condition = condition.replace(/(?<![.\w])(\w+)(?![.\w])/g, (match) => {
+      // Skip if it's a protected placeholder
+      if (match.startsWith('<<')) return match;
       
-      // Skip reserved keywords
-      const reserved = ['request', 'resource', 'data', 'auth', 'uid', 'true', 'false', 'null'];
-      if (reserved.includes(match)) {
-        return match;
-      }
+      // Skip reserved words
+      const reserved = ['true', 'false', 'null', 'REQUEST', 'AUTH', 'UID'];
+      if (reserved.includes(match.toUpperCase())) return match;
       
       // Qualify as resource.data.fieldName
       return `resource.data.${match}`;
     });
     
-    // Step 5: Clean up any double-qualifications that slipped through
-    condition = condition.replace(/resource\.data\.resource\.data\./g, 'resource.data.');
-    condition = condition.replace(/request\.auth\.request\.auth\./g, 'request.auth.');
+    // Step 5: Restore protected auth references
+    condition = condition.replace(/<<REQUEST_AUTH_UID>>/g, 'request.auth.uid');
     
     // Step 6: Handle simple cases
     if (condition === 'true' || condition.trim() === '') {
@@ -146,7 +115,6 @@ service cloud.firestore {
   combineConditions(conditions, operator) {
     if (conditions.length === 0) return 'false';
     if (conditions.length === 1) return conditions[0];
-    
     const op = operator === 'OR' ? '||' : '&&';
     return conditions.map(c => `(${c})`).join(` ${op} `);
   }
