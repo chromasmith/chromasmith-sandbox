@@ -21,22 +21,22 @@ async function runTests() {
   
   for (const testCase of testCases) {
     try {
-      console.log(\`📝 Generating: "\${testCase.description}"\`);
+      console.log(`📝 Generating: "${testCase.description}"`);
       
       // Dry run first
       const dryResult = await generate(testCase.description, { dryRun: true, includeCode: false });
-      console.log(\`   Intent detected: \${dryResult.discovery.intent}\`);
-      console.log(\`   File would be: \${dryResult.fileName}\`);
-      console.log(\`   Verbs: \${dryResult.discovery.verbs.length}\`);
+      console.log(`   Intent detected: ${dryResult.discovery.intent}`);
+      console.log(`   File would be: ${dryResult.fileName}`);
+      console.log(`   Verbs: ${dryResult.discovery.verbs.length}`);
       
       if (dryResult.discovery.intent === testCase.expectedIntent) {
         console.log('   ✅ Intent matches expected\n');
         passed++;
       } else {
-        console.log(\`   ⚠️  Intent mismatch (expected: \${testCase.expectedIntent})\n\`);
+        console.log(`   ⚠️  Intent mismatch (expected: ${testCase.expectedIntent})\n`);
       }
     } catch (err) {
-      console.log(\`   ❌ Generation failed: \${err.message}\n\`);
+      console.log(`   ❌ Generation failed: ${err.message}\n`);
     }
   }
   
@@ -54,7 +54,7 @@ async function runTests() {
     
     if (fileExists) {
       console.log('   ✅ File created successfully');
-      console.log(\`   Path: \${result.filePath}\`);
+      console.log(`   Path: ${result.filePath}`);
       generatedFiles.push(result.filePath);
       passed++;
       
@@ -65,10 +65,10 @@ async function runTests() {
       console.log('   ❌ File was not created\n');
     }
   } catch (err) {
-    console.log(\`   ❌ File generation failed: \${err.message}\n\`);
+    console.log(`   ❌ File generation failed: ${err.message}\n`);
   }
   
-  console.log(\`\n📊 Results: \${passed}/3 passed\`);
+  console.log(`\n📊 Results: ${passed}/3 passed`);
   return passed === 3;
 }
 
