@@ -117,8 +117,8 @@ async function runTests() {
       });
     }
     
-    // Flush the incidents window
-    const flushResult = await manager.flushWindow('incidents');
+    // Flush the incidents window (force=true for testing)
+    const flushResult = await manager.flushWindow('incidents', { force: true });
     
     console.log(`  Flushed: ${flushResult.flushed} notifications`);
     console.log(`  Window: ${flushResult.window}`);
