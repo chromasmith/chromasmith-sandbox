@@ -1,5 +1,5 @@
 // Ntendril Firestore Security Rules Converter
-// FINAL SYSTEMATIC FIX: Symbol-based placeholders that won't match word patterns
+// SYSTEMATIC FIX: Proper RLS parsing with nested parens and flexible whitespace
 
 const fs = require('fs').promises;
 const path = require('path');
@@ -17,22 +17,70 @@ class FirestoreConverter {
   
   parseRLSPolicies(sql) {
     const policies = [];
-    const policyRegex = /CREATE POLICY (\w+) ON (\w+)\s+(?:FOR (\w+))?\s+(?:TO (\w+))?\s+(?:USING \((.*?)\))?\s*(?:WITH CHECK \((.*?)\))?/gi;
     
-    let match;
-    while ((match = policyRegex.exec(sql)) !== null) {
-      const [_, name, table, command, role, using, withCheck] = match;
-      policies.push({
-        name,
-        collection: table,
-        command: command || 'ALL',
-        role: role || 'PUBLIC',
-        using: using || 'true',
-        withCheck: withCheck || using || 'true'
-      });
-      this.collections.add(table);
+    // SYSTEMATIC FIX: Handle nested parens and flexible whitespace
+    // Split by semicolons first, then parse each policy
+    const statements = sql.split(';').filter(s => s.trim());
+    
+    for (const statement of statements) {
+      const trimmed = statement.trim();
+      if (!trimmed.startsWith('CREATE POLICY')) continue;
+      
+      // Extract components one by one
+      const nameMatch = trimmed.match(/CREATE POLICY (\w+)/);
+      const tableMatch = trimmed.match(/ON (\w+)/);
+      const commandMatch = trimmed.match(/FOR (\w+)/);
+      const roleMatch = trimmed.match(/TO (\w+)/);
+      
+      // Extract USING clause - find the balanced parentheses
+      let using = 'true';
+      const usingIndex = trimmed.indexOf('USING (');
+      if (usingIndex !== -1) {
+        using = this.extractBalancedParens(trimmed, usingIndex + 6); // +6 for "USING "
+      }
+      
+      // Extract WITH CHECK clause
+      let withCheck = using;
+      const checkIndex = trimmed.indexOf('WITH CHECK (');
+      if (checkIndex !== -1) {
+        withCheck = this.extractBalancedParens(trimmed, checkIndex + 11); // +11 for "WITH CHECK "
+      }
+      
+      if (nameMatch && tableMatch) {
+        policies.push({
+          name: nameMatch[1],
+          collection: tableMatch[1],
+          command: commandMatch ? commandMatch[1] : 'ALL',
+          role: roleMatch ? roleMatch[1] : 'PUBLIC',
+          using,
+          withCheck
+        });
+        
+        this.collections.add(tableMatch[1]);
+      }
     }
+    
     return policies;
+  }
+  
+  extractBalancedParens(str, startIndex) {
+    // Extract content between balanced parentheses
+    let depth = 0;
+    let start = -1;
+    
+    for (let i = startIndex; i < str.length; i++) {
+      if (str[i] === '(') {
+        if (depth === 0) start = i + 1;
+        depth++;
+      } else if (str[i] === ')') {
+        depth--;
+        if (depth === 0) {
+          return str.substring(start, i);
+        }
+      }
+    }
+    
+    return 'true';
   }
   
   generateFirestoreRules(policies) {
@@ -77,33 +125,28 @@ class FirestoreConverter {
   convertCondition(sqlCondition) {
     let condition = sqlCondition.trim();
     
-    // Use symbol-based marker that can't match \w+
     const AUTH_MARKER = '___AUTH___';
     
-    // Step 1: Protect auth references with non-word marker
+    // Protect auth references
     condition = condition.replace(/\bauth\.uid\(\)/g, AUTH_MARKER);
     condition = condition.replace(/\bcurrent_user\b/g, AUTH_MARKER);
     
-    // Step 2: Convert operators
+    // Convert operators
     condition = condition.replace(/\s*=\s*/g, ' == ');
     
-    // Step 3: Remove type casts
+    // Remove type casts
     condition = condition.replace(/::\w+/g, '');
     
-    // Step 4: Qualify bare field names (won't match marker with underscores)
+    // Qualify bare field names
     condition = condition.replace(/(?<![.\w])(\w+)(?![.\w])/g, (match) => {
-      // Skip reserved words
       const reserved = ['true', 'false', 'null'];
       if (reserved.includes(match.toLowerCase())) return match;
-      
-      // Qualify as resource.data.fieldName
       return `resource.data.${match}`;
     });
     
-    // Step 5: Restore auth references
+    // Restore auth references
     condition = condition.replace(/___AUTH___/g, 'request.auth.uid');
     
-    // Step 6: Handle simple cases
     if (condition === 'true' || condition.trim() === '') {
       return 'true';
     }
