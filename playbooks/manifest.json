@@ -1,0 +1,108 @@
+{
+  "version": "1.0",
+  "schema": "playbook_manifest_v1",
+  "created": "2025-11-02T00:00:00Z",
+  "description": "Forge Flow 6.4 Chunked Playbook System",
+  "token_budget": 15000,
+  "chunks": [
+    {
+      "id": "01_viewing_stages",
+      "file": "chunks/01_viewing_stages.md",
+      "tokens": 1200,
+      "depends": [],
+      "triggers": ["artifact", "forgeview", "vercel", "production", "preview", "deploy"],
+      "priority": "always_load",
+      "sha256": ""
+    },
+    {
+      "id": "02_forge_intake",
+      "file": "chunks/02_forge_intake.md",
+      "tokens": 1100,
+      "depends": ["01_viewing_stages"],
+      "triggers": ["intake", "scaffold", "provision", "configure"],
+      "priority": "always_load",
+      "sha256": ""
+    },
+    {
+      "id": "03_context_protocol",
+      "file": "chunks/03_context_protocol.md",
+      "tokens": 1300,
+      "depends": [],
+      "triggers": ["context", "score", "load", "hot_index", "budget"],
+      "priority": "always_load",
+      "sha256": ""
+    },
+    {
+      "id": "04_durability_layer",
+      "file": "chunks/04_durability_layer.md",
+      "tokens": 1400,
+      "depends": [],
+      "triggers": ["wal", "audit", "lock", "transaction", "fsync", "durability"],
+      "priority": "always_load",
+      "sha256": ""
+    },
+    {
+      "id": "05_safety_guardrails",
+      "file": "chunks/05_safety_guardrails.md",
+      "tokens": 1350,
+      "depends": ["04_durability_layer"],
+      "triggers": ["guard", "safety", "circuit", "validation", "safe_mode"],
+      "priority": "always_load",
+      "sha256": ""
+    },
+    {
+      "id": "06_verbs_and_macros",
+      "file": "chunks/06_verbs_and_macros.md",
+      "tokens": 1500,
+      "depends": [],
+      "triggers": ["verb", "macro", "operation", "run", "repo", "incident"],
+      "priority": "trigger_based",
+      "sha256": ""
+    },
+    {
+      "id": "07_forge_map_editing",
+      "file": "chunks/07_forge_map_editing.md",
+      "tokens": 1200,
+      "depends": ["06_verbs_and_macros"],
+      "triggers": ["map", "edit", "create", "update", "schema", "validate"],
+      "priority": "trigger_based",
+      "sha256": ""
+    },
+    {
+      "id": "08_deployment_chains",
+      "file": "chunks/08_deployment_chains.md",
+      "tokens": 1250,
+      "depends": ["01_viewing_stages", "02_forge_intake"],
+      "triggers": ["deploy", "vercel", "github", "webhook", "ci", "cd"],
+      "priority": "trigger_based",
+      "sha256": ""
+    },
+    {
+      "id": "09_error_handling",
+      "file": "chunks/09_error_handling.md",
+      "tokens": 1100,
+      "depends": ["04_durability_layer", "05_safety_guardrails"],
+      "triggers": ["error", "incident", "dlq", "retry", "failure", "recovery"],
+      "priority": "trigger_based",
+      "sha256": ""
+    },
+    {
+      "id": "10_upgrade_packs",
+      "file": "chunks/10_upgrade_packs.md",
+      "tokens": 900,
+      "depends": [],
+      "triggers": ["upgrade", "pack", "pillar4", "extension", "module"],
+      "priority": "trigger_based",
+      "sha256": ""
+    },
+    {
+      "id": "11_admin_dashboard",
+      "file": "chunks/11_admin_dashboard.md",
+      "tokens": 800,
+      "depends": ["03_context_protocol", "05_safety_guardrails"],
+      "triggers": ["dashboard", "admin", "monitor", "health", "metrics"],
+      "priority": "trigger_based",
+      "sha256": ""
+    }
+  ]
+}
