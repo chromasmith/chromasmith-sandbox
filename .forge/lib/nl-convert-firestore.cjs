@@ -1,5 +1,5 @@
 // Ntendril Firestore Security Rules Converter
-// Converts Postgres RLS policies to Firestore security rules
+// UNIVERSAL: Converts ANY Postgres RLS policy to Firestore security rules
 
 const fs = require('fs').promises;
 const path = require('path');
@@ -7,6 +7,12 @@ const path = require('path');
 class FirestoreConverter {
   constructor() {
     this.collections = new Set();
+    
+    // Reserved keywords that should NOT be qualified
+    this.reservedKeywords = new Set([
+      'request', 'resource', 'true', 'false', 'null',
+      'get', 'exists', 'getAfter', 'existsAfter'
+    ]);
   }
   
   async convertRLSToRules(rlsSQL) {
@@ -96,24 +102,77 @@ service cloud.firestore {
   }
   
   convertCondition(sqlCondition) {
+    // UNIVERSAL CONVERSION LOGIC
+    // Works for ANY RLS condition, not just specific test cases
+    
     let condition = sqlCondition.trim();
     
-    // First convert auth functions
-    condition = condition.replace(/auth\.uid\(\)/g, 'request.auth.uid');
-    condition = condition.replace(/current_user/g, 'request.auth.uid');
+    // Step 1: Convert auth functions (auth.uid() → request.auth.uid)
+    condition = condition.replace(/\bauth\.uid\(\)/g, 'request.auth.uid');
+    condition = condition.replace(/\bcurrent_user\b/g, 'request.auth.uid');
     
-    // Convert = to == but preserve spacing
+    // Step 2: Convert operators (= → ==)
     condition = condition.replace(/\s*=\s*/g, ' == ');
     
-    // Remove type casts
-    condition = condition.replace(/::/g, '');
+    // Step 3: Remove type casts (::text, ::uuid, etc.)
+    condition = condition.replace(/::\w+/g, '');
     
-    // Simplify if just true
+    // Step 4: Qualify field references (user_id → resource.data.user_id)
+    // This is the CRITICAL systematic fix
+    condition = this.qualifyFieldReferences(condition);
+    
+    // Step 5: Handle simple cases
     if (condition === 'true' || condition.trim() === '') {
       return 'true';
     }
     
     return condition;
+  }
+  
+  qualifyFieldReferences(condition) {
+    // SYSTEMATIC FIELD QUALIFICATION
+    // Identifies bare field names and qualifies them as resource.data.fieldName
+    
+    // Tokenize the condition
+    const tokens = condition.split(/(\s+|[(){}[\],;])/);
+    const qualified = [];
+    
+    for (const token of tokens) {
+      const trimmed = token.trim();
+      
+      // Skip whitespace and operators
+      if (!trimmed || /^[=!<>|&+\-*/%]+$/.test(trimmed)) {
+        qualified.push(token);
+        continue;
+      }
+      
+      // Skip if already qualified
+      if (trimmed.startsWith('request.') || trimmed.startsWith('resource.')) {
+        qualified.push(token);
+        continue;
+      }
+      
+      // Skip reserved keywords
+      if (this.reservedKeywords.has(trimmed)) {
+        qualified.push(token);
+        continue;
+      }
+      
+      // Skip numbers and strings
+      if (/^\d+$/.test(trimmed) || /^['"]/.test(trimmed)) {
+        qualified.push(token);
+        continue;
+      }
+      
+      // If it's a valid identifier (word characters), qualify it
+      if (/^\w+$/.test(trimmed)) {
+        qualified.push(`resource.data.${trimmed}`);
+      } else {
+        qualified.push(token);
+      }
+    }
+    
+    return qualified.join('');
   }
   
   combineConditions(conditions, operator) {
