@@ -21,8 +21,10 @@ try {
       typeof provider.ping === 'function' &&
       typeof provider.insert === 'function' &&
       typeof provider.query === 'function' &&
-      typeof provider.supports === 'function') {
+      typeof provider.supports === 'function' &&
+      typeof provider.getCapabilityLevel === 'function') {
     console.log('✅ Test 1: Base Provider has required methods');
+    console.log('   Including: init, ping, insert, query, supports, getCapabilityLevel');
     passed++;
   } else {
     throw new Error('Missing required methods');
@@ -125,6 +127,33 @@ try {
   }
 } catch (err) {
   console.error('❌ Test 5 Failed:', err.message);
+  failed++;
+}
+
+// Test 6: Capability level checking
+try {
+  class TestProvider extends Provider {
+    constructor() {
+      super({});
+      this.capabilities[Features.TRANSACTIONS] = true;
+      this.capabilities[Features.RELATIONS] = 'partial';
+      this.capabilities[Features.VECTOR_SEARCH] = false;
+    }
+  }
+  
+  const provider = new TestProvider();
+  
+  if (provider.getCapabilityLevel(Features.TRANSACTIONS) === true &&
+      provider.getCapabilityLevel(Features.RELATIONS) === 'partial' &&
+      provider.getCapabilityLevel(Features.VECTOR_SEARCH) === false) {
+    console.log('✅ Test 6: Capability level checking works');
+    console.log('   true, partial, and false values handled correctly');
+    passed++;
+  } else {
+    throw new Error('Capability level checking failed');
+  }
+} catch (err) {
+  console.error('❌ Test 6 Failed:', err.message);
   failed++;
 }
 
