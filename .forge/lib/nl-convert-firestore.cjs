@@ -7,12 +7,6 @@ const path = require('path');
 class FirestoreConverter {
   constructor() {
     this.collections = new Set();
-    
-    // Reserved keywords that should NOT be qualified
-    this.reservedKeywords = new Set([
-      'request', 'resource', 'true', 'false', 'null',
-      'get', 'exists', 'getAfter', 'existsAfter'
-    ]);
   }
   
   async convertRLSToRules(rlsSQL) {
@@ -102,77 +96,51 @@ service cloud.firestore {
   }
   
   convertCondition(sqlCondition) {
-    // UNIVERSAL CONVERSION LOGIC
-    // Works for ANY RLS condition, not just specific test cases
+    // SYSTEMATIC UNIVERSAL CONVERSION
     
     let condition = sqlCondition.trim();
     
-    // Step 1: Convert auth functions (auth.uid() → request.auth.uid)
+    // Step 1: Convert auth functions FIRST
     condition = condition.replace(/\bauth\.uid\(\)/g, 'request.auth.uid');
     condition = condition.replace(/\bcurrent_user\b/g, 'request.auth.uid');
     
-    // Step 2: Convert operators (= → ==)
+    // Step 2: Convert operators
     condition = condition.replace(/\s*=\s*/g, ' == ');
     
-    // Step 3: Remove type casts (::text, ::uuid, etc.)
+    // Step 3: Remove type casts
     condition = condition.replace(/::\w+/g, '');
     
-    // Step 4: Qualify field references (user_id → resource.data.user_id)
-    // This is the CRITICAL systematic fix
-    condition = this.qualifyFieldReferences(condition);
+    // Step 4: Qualify bare field references
+    // Match word identifiers that are NOT already qualified
+    condition = condition.replace(/\b(\w+)\b/g, (match) => {
+      // Skip if already part of a qualified path
+      const beforeMatch = condition.substring(0, condition.indexOf(match));
+      if (beforeMatch.endsWith('request.') || 
+          beforeMatch.endsWith('resource.') || 
+          beforeMatch.endsWith('data.')) {
+        return match;
+      }
+      
+      // Skip reserved keywords
+      const reserved = ['request', 'resource', 'data', 'auth', 'uid', 'true', 'false', 'null'];
+      if (reserved.includes(match)) {
+        return match;
+      }
+      
+      // Qualify as resource.data.fieldName
+      return `resource.data.${match}`;
+    });
     
-    // Step 5: Handle simple cases
+    // Step 5: Clean up any double-qualifications that slipped through
+    condition = condition.replace(/resource\.data\.resource\.data\./g, 'resource.data.');
+    condition = condition.replace(/request\.auth\.request\.auth\./g, 'request.auth.');
+    
+    // Step 6: Handle simple cases
     if (condition === 'true' || condition.trim() === '') {
       return 'true';
     }
     
     return condition;
-  }
-  
-  qualifyFieldReferences(condition) {
-    // SYSTEMATIC FIELD QUALIFICATION
-    // Identifies bare field names and qualifies them as resource.data.fieldName
-    
-    // Tokenize the condition
-    const tokens = condition.split(/(\s+|[(){}[\],;])/);
-    const qualified = [];
-    
-    for (const token of tokens) {
-      const trimmed = token.trim();
-      
-      // Skip whitespace and operators
-      if (!trimmed || /^[=!<>|&+\-*/%]+$/.test(trimmed)) {
-        qualified.push(token);
-        continue;
-      }
-      
-      // Skip if already qualified
-      if (trimmed.startsWith('request.') || trimmed.startsWith('resource.')) {
-        qualified.push(token);
-        continue;
-      }
-      
-      // Skip reserved keywords
-      if (this.reservedKeywords.has(trimmed)) {
-        qualified.push(token);
-        continue;
-      }
-      
-      // Skip numbers and strings
-      if (/^\d+$/.test(trimmed) || /^['"]/.test(trimmed)) {
-        qualified.push(token);
-        continue;
-      }
-      
-      // If it's a valid identifier (word characters), qualify it
-      if (/^\w+$/.test(trimmed)) {
-        qualified.push(`resource.data.${trimmed}`);
-      } else {
-        qualified.push(token);
-      }
-    }
-    
-    return qualified.join('');
   }
   
   combineConditions(conditions, operator) {
