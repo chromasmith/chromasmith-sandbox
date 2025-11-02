@@ -19,19 +19,17 @@ let failed = 0;
       database: 'test_db'
     });
     
-    const capabilities = provider.getCapabilities();
-    
     if (provider.name === 'mongodb' &&
         provider.supports(Features.TRANSACTIONS) &&
         provider.supports(Features.FULL_TEXT_SEARCH) &&
         provider.supports(Features.TIME_SERIES) &&
         provider.supports(Features.VECTOR_SEARCH) &&
-        capabilities[Features.RELATIONS] === 'partial') {
+        provider.getCapabilityLevel(Features.RELATIONS) === 'partial') {
       console.log('✅ Test 1: Constructor and capabilities correct');
       console.log(`   Provider: ${provider.name}`);
       console.log(`   Supports Transactions: ${provider.supports(Features.TRANSACTIONS)}`);
       console.log(`   Supports Time Series: ${provider.supports(Features.TIME_SERIES)}`);
-      console.log(`   Supports Relations: ${capabilities[Features.RELATIONS]} (partial via $lookup)`);
+      console.log(`   Supports Relations: ${provider.getCapabilityLevel(Features.RELATIONS)} (partial via $lookup)`);
       passed++;
     } else {
       throw new Error('Capabilities incorrect');
