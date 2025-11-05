@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tendril Map (Trellis)",
+  "description": "Schema for declarative infrastructure manifests in Forge Flow 7.0",
+  "type": "object",
+  "required": ["version", "project", "providers", "modules"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Schema version (e.g., '1.0')"
+    },
+    "project": {
+      "type": "object",
+      "required": ["name", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Project name (kebab-case recommended)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Project description"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional project tags"
+        }
+      }
+    },
+    "providers": {
+      "type": "object",
+      "description": "Infrastructure provider selections",
+      "properties": {
+        "database": {
+          "type": "string",
+          "enum": ["supabase", "firebase", "mysql", "mongodb", "dynamodb"],
+          "description": "Database provider"
+        },
+        "auth": {
+          "type": "string",
+          "enum": ["clerk", "auth0", "supabase", "firebase"],
+          "description": "Authentication provider"
+        },
+        "storage": {
+          "type": "string",
+          "enum": ["bunny", "aws-s3", "cloudflare-r2", "azure-blob"],
+          "description": "Storage/CDN provider"
+        },
+        "hosting": {
+          "type": "string",
+          "enum": ["vercel", "netlify", "cloudflare-pages"],
+          "description": "Hosting platform"
+        }
+      }
+    },
+    "modules": {
+      "type": "array",
+      "description": "Application modules and features",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Module name"
+          },
+          "type": {
+            "type": "string",
+            "description": "Module type (core, addon, etc.)"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Module dependencies (other module names)"
+          }
+        }
+      }
+    }
+  }
+}
