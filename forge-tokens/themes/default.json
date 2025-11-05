@@ -1,0 +1,40 @@
+{
+  "name": "Default",
+  "id": "default",
+  "version": "1.0.0",
+  "tokens": {
+    "color": {
+      "primary": { "value": "#3b82f6", "description": "Primary brand color" },
+      "secondary": { "value": "#8b5cf6", "description": "Secondary accent" },
+      "background": { "value": "#ffffff", "description": "Default background" },
+      "surface": { "value": "#f9fafb", "description": "Card/panel surface" },
+      "text": { "value": "#111827", "description": "Primary text" },
+      "textMuted": { "value": "#6b7280", "description": "Secondary text" },
+      "border": { "value": "#e5e7eb", "description": "Border color" },
+      "error": { "value": "#ef4444", "description": "Error state" },
+      "success": { "value": "#10b981", "description": "Success state" }
+    },
+    "font": {
+      "family": { "value": "system-ui, -apple-system, sans-serif", "description": "Font stack" },
+      "sizeBase": { "value": "16px", "description": "Base font size" },
+      "sizeSmall": { "value": "14px", "description": "Small text" },
+      "sizeLarge": { "value": "20px", "description": "Large text" },
+      "sizeHeading": { "value": "32px", "description": "Heading size" },
+      "weightNormal": { "value": "400", "description": "Normal weight" },
+      "weightBold": { "value": "700", "description": "Bold weight" }
+    },
+    "radius": {
+      "none": { "value": "0px", "description": "No rounding" },
+      "small": { "value": "4px", "description": "Subtle rounding" },
+      "medium": { "value": "8px", "description": "Standard rounding" },
+      "large": { "value": "16px", "description": "Pronounced rounding" },
+      "full": { "value": "9999px", "description": "Pill shape" }
+    },
+    "motion": {
+      "durationFast": { "value": "150ms", "description": "Quick transitions" },
+      "durationNormal": { "value": "250ms", "description": "Standard transitions" },
+      "durationSlow": { "value": "400ms", "description": "Slow transitions" },
+      "easing": { "value": "ease-in-out", "description": "Default easing" }
+    }
+  }
+}
