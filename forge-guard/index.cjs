@@ -1,3 +1,5 @@
+const schemas = require('./schemas.cjs');
+
 let SAFE_MODE = "off"; // "off" | "read_only"
 const TOKENS = new Map(); // token -> { action, expiresAt }
 
@@ -28,6 +30,21 @@ function guard_enforce({ action, payload = {}, risk = "none", confirm_token }) {
     return { allowed: false, reason: "SAFE_MODE" };
   }
 
+  // Schema validation
+  if (infraActions.has(action)) {
+    const schemaName = action.replace(/\./g, '_');
+    const validationResult = schemas.validate(schemaName, payload);
+    if (!validationResult.valid) {
+      // Log incident
+      console.error(`Schema validation failed for ${action}:`, validationResult.errors);
+      return {
+        allowed: false,
+        reason: 'SCHEMA_INVALID',
+        errors: validationResult.errors
+      };
+    }
+  }
+
   if (infraActions.has(action)) {
     if (!confirm_token) return { allowed: false, reason: "CONFIRM_TOKEN_REQUIRED" };
     const rec = TOKENS.get(confirm_token);
@@ -44,4 +61,3 @@ module.exports = {
   guard_safe_mode_get,
   guard_safe_mode_set,
 };
-
