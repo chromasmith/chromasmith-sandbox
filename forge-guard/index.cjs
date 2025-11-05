@@ -1,4 +1,5 @@
 const schemas = require('./schemas.cjs');
+const health = require('../forge-health/index.cjs');
 
 let SAFE_MODE = "off"; // "off" | "read_only"
 const TOKENS = new Map(); // token -> { action, expiresAt }
@@ -25,6 +26,11 @@ function guard_safe_mode_set({ mode }) {
 
 function guard_enforce({ action, payload = {}, risk = "none", confirm_token }) {
   const infraActions = new Set(["build.prepare_forgeview","build.deploy_preview","build.deploy_production"]);
+
+  // Check health breakers before SAFE_MODE
+  if (health.health_should_block_writes() && infraActions.has(action)) {
+    return { allowed: false, reason: "SAFE_MODE_BREAKER_OPEN" };
+  }
 
   if (SAFE_MODE === "read_only" && infraActions.has(action)) {
     return { allowed: false, reason: "SAFE_MODE" };
