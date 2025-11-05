@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "project": {
+    "name": "blog-platform",
+    "description": "Modern blog platform with authentication and content management",
+    "tags": ["blog", "cms", "saas"]
+  },
+  "providers": {
+    "database": "supabase",
+    "auth": "clerk",
+    "storage": "bunny",
+    "hosting": "vercel"
+  },
+  "modules": [
+    {
+      "name": "content",
+      "type": "core",
+      "dependencies": []
+    },
+    {
+      "name": "user-profiles",
+      "type": "core",
+      "dependencies": []
+    },
+    {
+      "name": "comments",
+      "type": "addon",
+      "dependencies": ["content", "user-profiles"]
+    },
+    {
+      "name": "billing",
+      "type": "addon",
+      "dependencies": ["user-profiles"]
+    },
+    {
+      "name": "analytics",
+      "type": "addon",
+      "dependencies": ["content"]
+    }
+  ]
+}
