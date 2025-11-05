@@ -1,0 +1,5 @@
+{
+  "monotonic_seq": 0,
+  "last_updated": "2025-11-05T03:56:30Z",
+  "note": "Monotonic sequence counter for idempotency keys"
+}
