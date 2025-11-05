@@ -1,4 +1,4 @@
-const PREVIEW_HOST = "https://forgeview.example.com"; // placeholder only
+const PREVIEW_HOST = "https://forgeview.chromasmith.com";
 
 async function build_prepare_forgeview({ repo_name, temp_allowed = true, channel = "1" }) {
   const preview_url = `${PREVIEW_HOST}/channel/${channel}/preview/${encodeURIComponent(repo_name)}`;
