@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "namespace": "forge-stubs-shared",
+  "datasets": {
+    "blog": {
+      "description": "Blog posts with authors",
+      "count": 50,
+      "schema": ["id", "title", "slug", "author", "excerpt", "content", "published_at", "tags"]
+    },
+    "products": {
+      "description": "E-commerce product catalog",
+      "count": 30,
+      "schema": ["id", "name", "slug", "price", "description", "category", "image_url", "in_stock"]
+    },
+    "users": {
+      "description": "User profiles",
+      "count": 20,
+      "schema": ["id", "username", "email", "full_name", "avatar_url", "bio", "created_at"]
+    }
+  }
+}
