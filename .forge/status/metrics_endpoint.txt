@@ -1,0 +1,76 @@
+Forge Cairns Metrics Endpoint
+==============================
+
+Port: 9001
+Host: 0.0.0.0 (all interfaces)
+
+Endpoints:
+  - GET /metrics (Prometheus text format)
+  - GET /health (JSON health check)
+  - GET / (Service information)
+
+Access URLs:
+  Local: http://localhost:9001/metrics
+  ForgeView: http://forgeview.chromasmith.com:9001/metrics
+  
+Metrics Exposed:
+  - cairns.wal.commits
+  - cairns.audit.appends
+  - cairns.events.appends
+  - cairns.lock.acquires
+  - cairns.lock.timeouts
+  - All metrics defined in forge-cairns/lib/metrics.cjs
+
+Response Formats:
+  /metrics - Prometheus text format (text/plain)
+    - Includes HELP and TYPE annotations
+    - Supports labeled metrics
+    - Histogram metrics with count, sum, and buckets
+  
+  /health - JSON format
+    {
+      "status": "ok",
+      "module": "forge-cairns",
+      "uptime": 123456,
+      "timestamp": 1730780497123,
+      "metrics_count": 5
+    }
+  
+  / - JSON service info
+    {
+      "service": "Forge Cairns Metrics Server",
+      "version": "1.0.0",
+      "endpoints": {...},
+      "documentation": {...}
+    }
+
+Features:
+  - Lightweight HTTP server (no dependencies)
+  - CORS enabled for cross-origin access
+  - Graceful shutdown on SIGTERM/SIGINT
+  - Environment variable configuration:
+    - METRICS_PORT (default: 9001)
+    - METRICS_HOST (default: 0.0.0.0)
+
+Usage:
+  # Start server
+  node forge-cairns/metrics-server.cjs
+  
+  # Test locally
+  curl http://localhost:9001/metrics
+  curl http://localhost:9001/health
+  
+  # From Prometheus
+  scrape_configs:
+    - job_name: 'forge-cairns'
+      static_configs:
+        - targets: ['forgeview.chromasmith.com:9001']
+
+Implementation:
+  - Server: forge-cairns/metrics-server.cjs
+  - Metrics: forge-cairns/lib/metrics.cjs
+  - Created: 2025-11-05T04:01:37Z
+  - Commit: 8a9653863e4c07700d6f7eaae643d9dd4ebcaa45
+
+Status: Active
+Phase: FF7.0 Phase 6.2 - Observability
