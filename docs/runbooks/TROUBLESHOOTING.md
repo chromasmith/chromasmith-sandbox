@@ -1,455 +1,326 @@
-# Forge Flow 7.0 - Troubleshooting Runbook
+# Forge Flow 7.0 - Troubleshooting Guide
 
 ## Common Issues by Module
 
-### forge-guard Issues
+### forge-guard
 
-#### Safe Mode Blocking Operations
-**Symptom**: Operations rejected with "Safe mode enabled"
-**Cause**: forge-guard protection active without confirmation token
-**Solution**:
-```javascript
-// Provide confirmation token
-const result = await guardedOperation({
-  confirmationToken: 'user-confirmed-action',
-  data: { ... }
-});
-```
-
-#### Schema Validation Failures
-**Symptom**: "Schema validation failed" errors
-**Cause**: Data doesn't match expected schema
-**Diagnosis**:
+**Issue: Safe mode blocking writes**
 ```bash
-# Check logs for validation details
-tail -f forge-guard/logs/combined.log | grep "validation"
+# Check safe mode status
+cat .forge/status/health.json | jq '.safe_mode'
+
+# Disable safe mode (if appropriate)
+echo '{"safe_mode":"off"}' > .forge/status/health.json
 ```
-**Solution**: Fix data structure or update schema definition
 
-### forge-cairns Issues
-
-#### WAL Lock Contention
-**Symptom**: "transaction.lock file exists" errors
-**Cause**: Stale lock from crashed process or concurrent writes
-**Diagnosis**:
+**Issue: Schema validation failures**
 ```bash
-# Check for lock file
-ls -la forge-cairns/data/wal/transaction.lock
+# Check schema directory
+ls -la .forge/_schema/
 
-# Check if process is actually running
-ps aux | grep forge-cairns
+# Validate schema format
+node -e "console.log(JSON.parse(require('fs').readFileSync('.forge/_schema/map_schemas/project.json')))"
 ```
-**Solution**:
+
+**Issue: Confirmation token expired**
+- Tokens expire after 10 minutes
+- Request new token via guard.confirm.request()
+- Check token cache: `.forge/status/guard_tokens.json`
+
+### forge-cairns
+
+**Issue: WAL lock stuck**
 ```bash
-# If no process is running, remove stale lock
-rm forge-cairns/data/wal/transaction.lock
+# Check lock file
+cat .forge/_wal/transaction.lock
 
-# Restart service
-pm2 restart forge-cairns
+# If stale (>5 minutes), force release
+rm .forge/_wal/transaction.lock
+
+# Verify WAL integrity
+node -e "const fs=require('fs'); console.log(fs.readFileSync('.forge/_wal/pending_writes.jsonl','utf8').split('\n').filter(l=>l).length + ' entries')"
 ```
 
-#### WAL Corruption
-**Symptom**: Cannot read WAL entries, "invalid JSON" errors
-**Cause**: Incomplete writes or disk issues
-**Diagnosis**:
+**Issue: Idempotency key collisions**
 ```bash
-# Check WAL integrity
-tail -20 forge-cairns/data/wal/operations.log
+# Check events ledger for duplicates
+grep "idempotency_key" .forge/events_ledger.jsonl | sort | uniq -d
+
+# Reset monotonic sequence (DANGER: only if needed)
+echo '{"monotonic_seq":0}' > .forge/status/seq.json
 ```
-**Solution**:
+
+**Issue: Atomic write failures**
+- Check disk space: `df -h`
+- Check permissions: `ls -la .forge/`
+- Review error logs: `tail -100 .forge/status/logs/cairns.log`
+
+### forge-view
+
+**Issue: Channel not responding**
 ```bash
-# Backup corrupted WAL
-mv forge-cairns/data/wal/operations.log \
-   forge-cairns/data/wal/operations.log.corrupt.$(date +%s)
+# Check channel registry
+cat .forge/status/channel_registry.json | jq '.'
 
-# Restore from backup if available
-cp forge-cairns/data/wal/operations.log.backup \
-   forge-cairns/data/wal/operations.log
+# Test channel endpoints
+curl http://localhost:5173/
+curl http://localhost:5174/
 
-# Or start fresh (data loss)
-&gt; forge-cairns/data/wal/operations.log
+# Restart Ladle services
+pm2 restart chromasmith-sandbox-ladle
 ```
 
-#### Idempotency Cache Issues
-**Symptom**: Duplicate operations not detected
-**Cause**: Cache cleared or never initialized
-**Solution**:
-```javascript
-// Force cache rebuild
-const cairns = require('./forge-cairns');
-cairns.rebuildCache();
-```
+**Issue: Preview URL 404**
+- Verify branch matches channel pattern (dev→1, feature/*→2)
+- Check component exists: `ls -la components/`
+- Review webhook logs: `tail -50 ~/.forge/status/logs/webhook.log`
 
-### forge-view Issues
-
-#### Preview Not Loading
-**Symptom**: Blank screen or 404 on preview URL
-**Cause**: Component not registered or Ladle server not running
-**Diagnosis**:
+**Issue: Git pull failures**
 ```bash
-# Check Ladle process
-ps aux | grep ladle
-
-# Check preview URL
-curl http://localhost:[ladle-port]/preview/ComponentName
-```
-**Solution**:
-```bash
-# Restart Ladle
-npm run ladle
-
-# Verify component registration
-ls -la src/components/*.stories.jsx
-```
-
-#### Hot Reload Not Working
-**Symptom**: Changes not reflected in preview
-**Cause**: File watcher not detecting changes or forge-pulse not publishing
-**Diagnosis**:
-```bash
-# Check file watcher
-tail -f forge-view/logs/combined.log | grep "file change"
-
-# Check pulse messages
-curl http://localhost:9001/pulse/stats
-```
-**Solution**:
-```bash
-# Restart forge-pulse subscriber
-# Force refresh in browser
-# Check file permissions for watched directories
-```
-
-#### Channel Registration Failed
-**Symptom**: "Channel not found" errors
-**Cause**: forge-pulse not initialized or channel name mismatch
-**Solution**:
-```javascript
-// Re-register channel
-const pulse = require('./forge-pulse');
-pulse.createChannel('component-updates');
-```
-
-### forge-pulse Issues
-
-#### Message Not Delivered
-**Symptom**: Subscribers not receiving messages
-**Cause**: Channel not created or subscriber not registered
-**Diagnosis**:
-```bash
-# List active channels
-curl http://localhost:9001/pulse/channels
-
-# List subscribers
-curl http://localhost:9001/pulse/subscribers
-```
-**Solution**:
-```javascript
-// Verify channel exists
-pulse.createChannel('updates');
-
-// Re-register subscriber
-pulse.subscribe('updates', callbackFn);
-```
-
-#### Memory Leak from Unsubscribed Handlers
-**Symptom**: Memory usage grows over time
-**Cause**: Subscribers not cleaned up properly
-**Solution**:
-```javascript
-// Always unsubscribe when done
-const unsubscribe = pulse.subscribe('updates', handler);
-// Later...
-unsubscribe();
-```
-
-### forge-health Issues
-
-#### Circuit Breaker Stuck Open
-**Symptom**: Operations blocked even though service recovered
-**Cause**: Circuit breaker not reset after recovery
-**Diagnosis**:
-```bash
-# Check breaker state
-curl http://localhost:9001/breakers
-```
-**Solution**:
-```bash
-# Manual reset
-curl -X POST http://localhost:9001/breakers/reset \
-  -H "Content-Type: application/json" \
-  -d '{"name":"api-call"}'
-```
-
-#### Heartbeat Timeout
-**Symptom**: "Service not responding" alerts
-**Cause**: Service crashed or network issues
-**Diagnosis**:
-```bash
-# Check last heartbeat
-curl http://localhost:9001/heartbeat/forge-dashboard
-
-# Check service status
-pm2 status
-```
-**Solution**:
-```bash
-# Restart service
-pm2 restart forge-dashboard
-
-# Check logs for crash reason
-pm2 logs forge-dashboard --lines 50
-```
-
-#### Health Endpoint Returns 500
-**Symptom**: Health check fails
-**Cause**: Dependent service down or module error
-**Diagnosis**:
-```bash
-# Get detailed health status
-curl http://localhost:9001/health?verbose=true
-```
-**Solution**: Fix the failing dependency shown in verbose output
-
-### forge-tendrils Issues
-
-#### Webhook HMAC Verification Failed
-**Symptom**: "Invalid signature" errors, webhook rejected
-**Cause**: Wrong secret or signature format mismatch
-**Diagnosis**:
-```bash
-# Check webhook logs
-tail -f forge-tendrils/logs/combined.log | grep "signature"
-
-# Verify secret configured
-grep WEBHOOK_SECRET .env
-```
-**Solution**:
-```bash
-# Regenerate webhook secret in GitHub
-# Update .env file
-WEBHOOK_SECRET=new-secret-here
-
-# Restart webhook receiver
-pm2 restart forge-tendrils
-```
-
-#### Git Pull Failures
-**Symptom**: Webhook received but code not updated
-**Cause**: Git authentication issues or merge conflicts
-**Diagnosis**:
-```bash
-# Check git status
-cd /path/to/repo
+# Check working tree status
+cd ~/chromasmith-sandbox
 git status
 
-# Check webhook logs
-tail -f forge-tendrils/logs/combined.log | grep "git pull"
-```
-**Solution**:
-```bash
-# Fix git authentication
-git config credential.helper store
+# Reset if needed
+git reset --hard origin/dev
+git clean -fd
 
-# Resolve conflicts manually
-git pull --rebase origin main
-
-# Or force clean pull
-git fetch origin
-git reset --hard origin/main
+# Verify webhook listener
+curl http://localhost:9000/health
 ```
 
-#### Webhook Port Already in Use
-**Symptom**: "Address already in use" on port 9002
-**Cause**: Another process using the port or stale process
-**Diagnosis**:
-```bash
-# Find process using port
-lsof -i :9002
-# Or on Windows
-netstat -ano | findstr :9002
-```
-**Solution**:
-```bash
-# Kill process
-kill -9 [PID]
+### forge-pulse
 
-# Or change port in .env
-WEBHOOK_PORT=9012
-pm2 restart forge-tendrils
+**Issue: Messages not delivered**
+```bash
+# Check in-memory queue
+node -e "const pulse=require('./forge-pulse/index.cjs'); console.log(pulse.getQueueStats())"
+
+# Verify subscribers
+grep "subscriber" .forge/status/logs/pulse.log
 ```
 
-### forge-dashboard Issues
+**Issue: Channel isolation broken**
+- Restart Pulse service
+- Clear queue: Delete `.forge/status/pulse_queue.json`
+- Verify separation in logs
 
-#### Dashboard Not Accessible
-**Symptom**: Cannot connect to port 9000
-**Cause**: Service not started or port conflict
-**Diagnosis**:
+### forge-health
+
+**Issue: Heartbeat failures**
 ```bash
-# Check if running
-pm2 list | grep forge-dashboard
+# Check health status
+curl http://localhost:9002/health | jq '.'
 
-# Check port
-netstat -an | grep 9000
-```
-**Solution**:
-```bash
-# Start service
-pm2 start forge-dashboard
+# Review heartbeat logs
+tail -50 .forge/status/logs/health.log
 
-# Or change port
-PORT=9010 node forge-dashboard/index.cjs
+# Restart health service
+pm2 restart forge-health
 ```
 
-#### Metrics Not Updating
-**Symptom**: Stale data in dashboard
-**Cause**: forge-pulse not delivering updates or subscribers disconnected
-**Diagnosis**:
+**Issue: Circuit breaker stuck OPEN**
 ```bash
-# Check pulse stats
-curl http://localhost:9001/pulse/stats
+# Check breaker states
+curl http://localhost:9002/api/breakers | jq '.'
 
-# Check dashboard logs
-tail -f forge-dashboard/logs/combined.log
+# Manual reset (if appropriate)
+node -e "const h=require('./forge-health/index.cjs'); h.resetBreaker('api-call')"
 ```
-**Solution**:
-```bash
-# Restart dashboard
-pm2 restart forge-dashboard
 
-# Verify pulse channels
-curl http://localhost:9001/pulse/channels
+### forge-build
+
+**Issue: ForgeView stub not responding**
+```bash
+# Check stub health
+curl http://localhost:3000/health
+
+# Verify build artifacts
+ls -la .forge/preview.json
+
+# Review build logs
+tail -100 .forge/status/logs/build.log
+```
+
+**Issue: Component registration failures**
+- Check component file exists
+- Verify import paths
+- Review registration logs in build.log
+
+## Lock Diagnostics
+
+### Check Lock Status
+```bash
+# View current lock
+cat .forge/_wal/transaction.lock
+
+# Check lock age
+stat -c %Y .forge/_wal/transaction.lock
+
+# Current timestamp
+date +%s
+```
+
+### Force Lock Release (CAUTION)
+```bash
+# Only if lock >5 minutes old and no active processes
+rm .forge/_wal/transaction.lock
+
+# Verify no processes holding lock
+ps aux | grep "forge-"
+```
+
+## Safe Mode Troubleshooting
+
+### Enter Safe Mode Manually
+```bash
+echo '{"safe_mode":"read_only","reason":"manual","timestamp":"'$(date -Iseconds)'"}' > .forge/status/health.json
+```
+
+### Exit Safe Mode
+```bash
+echo '{"safe_mode":"off","timestamp":"'$(date -Iseconds)'"}' > .forge/status/health.json
+
+# Verify services recognize change
+curl http://localhost:9002/health | jq '.safe_mode'
+```
+
+## Circuit Breaker Reset
+
+### Check All Breakers
+```bash
+curl http://localhost:9002/api/breakers
+```
+
+### Reset Specific Breaker
+```bash
+curl -X POST http://localhost:9002/api/breakers/reset \
+  -H "Content-Type: application/json" \
+  -d '{"breaker_id":"api-call"}'
+```
+
+## Webhook Debugging
+
+### Verify HMAC Signature
+```bash
+# Check webhook secret
+cat ~/.forge/_policy/secrets.json | jq '.github_webhook_secret'
+
+# Test signature generation
+echo -n "payload" | openssl dgst -sha256 -hmac "YOUR_SECRET"
+```
+
+### Review Webhook Logs
+```bash
+tail -100 ~/.forge/status/logs/webhook.log | grep "ERROR"
+tail -100 ~/.forge/status/logs/webhook.log | grep "signature"
+```
+
+### Test Webhook Manually
+```bash
+curl -X POST http://localhost:9000/webhook \
+  -H "X-Hub-Signature-256: sha256=VALID_SIGNATURE" \
+  -H "X-GitHub-Event: push" \
+  -H "Content-Type: application/json" \
+  -d '{"ref":"refs/heads/dev","repository":{"name":"chromasmith-sandbox"}}'
 ```
 
 ## Context Loading Failures
 
-#### Module Import Errors
-**Symptom**: "Cannot find module" errors
-**Cause**: Missing dependencies or incorrect paths
-**Solution**:
+### Check Context Budget
 ```bash
-# Reinstall dependencies
-rm -rf node_modules package-lock.json
-npm install
+# Review context policy
+cat .forge/_policy/context.json | jq '.'
 
-# Verify module exists
-ls -la forge-[module]/index.cjs
+# Check trio size
+wc -c .forge/context/project_fingerprint.json
+wc -c .forge/context/map_index_with_triggers.json
+wc -c .forge/_session/active_intent.json
 ```
 
-#### Circular Dependency
-**Symptom**: "Module not defined" or "undefined" exports
-**Cause**: Modules importing each other
-**Solution**: Refactor to use forge-core as intermediary
+### Context Soft-Landing Triggered
+- Tier 1 (1501-1650 tokens): Metadata dropped
+- Tier 2 (1651-1800 tokens): Aggressive pruning
+- Review: `.forge/status/logs/context.log`
 
 ## DLQ Replay Procedures
 
-#### View Dead Letter Queue
+### Check DLQ Status
 ```bash
-# List failed operations
-curl http://localhost:9001/dlq/list
+# Count failed operations
+cat .forge/_dlq/*.jsonl | wc -l
+
+# View recent failures
+tail -20 .forge/_dlq/*.jsonl | jq '.'
 ```
 
-#### Replay Single Entry
+### Replay Single Item
 ```bash
-curl -X POST http://localhost:9001/dlq/replay \
-  -H "Content-Type: application/json" \
-  -d '{"id":"dlq-entry-id"}'
+node forge-cairns/dlq-replay.cjs --id=OPERATION_ID
 ```
 
-#### Replay All
+### Replay Batch
 ```bash
-curl -X POST http://localhost:9001/dlq/replay-all
+node forge-cairns/dlq-replay.cjs --batch --filter='{"module":"forge-build"}'
 ```
 
-#### Purge DLQ
+## Port Conflicts
+
+### Check Port Usage
 ```bash
-curl -X DELETE http://localhost:9001/dlq/purge
+lsof -i :9000
+lsof -i :9001
+lsof -i :9002
+lsof -i :9003
+```
+
+### Kill Process on Port
+```bash
+lsof -ti :9003 | xargs kill -9
 ```
 
 ## Log Locations
 
-```
-forge-dashboard/logs/
-  ├── combined.log    # All log levels
-  ├── error.log       # Errors only
-  └── access.log      # HTTP requests
-
-forge-health/logs/
-  ├── combined.log
-  └── error.log
-
-forge-tendrils/logs/
-  ├── combined.log
-  └── error.log
-
-forge-cairns/data/wal/
-  └── operations.log  # WAL entries
-```
+- Webhook: `~/.forge/status/logs/webhook.log`
+- Health: `.forge/status/logs/health.log`
+- Cairns: `.forge/status/logs/cairns.log`
+- Build: `.forge/status/logs/build.log`
+- Pulse: `.forge/status/logs/pulse.log`
+- Dashboard: `.forge/status/logs/dashboard.log`
 
 ## Health Check Interpretation
 
 ### Status Codes
-- `200 OK`: All services healthy
-- `503 Service Unavailable`: One or more services down
-- `500 Internal Server Error`: Health check itself failed
+- `healthy`: All systems operational
+- `degraded`: Some non-critical failures
+- `unhealthy`: Critical system failure
+- `unknown`: Health check failed
 
-### Response Format
-```json
-{
-  "status": "ok",
-  "uptime": 12345,
-  "modules": ["core", "guard", "cairns", "pulse", "health"],
-  "breakers": {
-    "api-call": {"state": "closed", "failures": 0}
-  },
-  "heartbeats": {
-    "forge-dashboard": {"lastSeen": 1234567890}
-  }
-}
+### Module Health
+```bash
+curl http://localhost:9003/api/health | jq '.modules[] | select(.status != "healthy")'
 ```
 
-## Emergency Procedures
+## Emergency Recovery
 
-### Complete System Restart
+### Full System Reset (NUCLEAR OPTION)
 ```bash
 # Stop all services
 pm2 stop all
 
-# Clear all locks
-rm -f forge-cairns/data/wal/*.lock
+# Clear locks
+rm .forge/_wal/transaction.lock
 
-# Restart in order
-pm2 start forge-health
-sleep 2
-pm2 start forge-dashboard
-sleep 2
-pm2 start forge-tendrils
-```
+# Reset health
+echo '{"safe_mode":"off"}' > .forge/status/health.json
 
-### Reset to Clean State
-```bash
-# DESTRUCTIVE: Clears all runtime data
-rm -rf forge-cairns/data/wal/*
-rm -rf forge-dashboard/logs/*
-rm -rf forge-health/logs/*
-rm -rf forge-tendrils/logs/*
+# Clear DLQ (optional)
+rm .forge/_dlq/*.jsonl
 
-# Restart
+# Restart services
 pm2 restart all
+
+# Verify
+curl http://localhost:9000/health
+curl http://localhost:9003/api/health
 ```
-
-### Emergency Shutdown
-```bash
-# Quick kill all services
-pm2 kill
-
-# Or manual
-pkill -9 -f "forge-"
-```
-
-## Support Escalation
-
-1. Check this troubleshooting guide first
-2. Review logs in module-specific log directories
-3. Check GitHub Issues for known problems
-4. Contact: chromasmith1@gmail.com
