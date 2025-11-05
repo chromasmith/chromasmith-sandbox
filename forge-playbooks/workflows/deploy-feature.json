@@ -1,0 +1,111 @@
+{
+  "name": "deploy-feature",
+  "version": "1.0",
+  "description": "Deploy a feature branch to preview environment",
+  "author": "Chromasmith",
+  "tags": ["deployment", "ci-cd", "preview"],
+  "inputs": {
+    "branch_name": {
+      "type": "string",
+      "description": "Feature branch to deploy",
+      "required": true
+    },
+    "environment": {
+      "type": "string",
+      "description": "Target environment",
+      "required": true,
+      "default": "preview"
+    },
+    "skip_tests": {
+      "type": "boolean",
+      "description": "Skip test execution",
+      "required": false,
+      "default": false
+    },
+    "notify_slack": {
+      "type": "boolean",
+      "description": "Send Slack notification",
+      "required": false,
+      "default": true
+    }
+  },
+  "steps": [
+    {
+      "id": "validate_branch",
+      "action": "git.check_branch",
+      "description": "Validate feature branch exists",
+      "params": {
+        "branch": "{{inputs.branch_name}}"
+      },
+      "on_error": "fail",
+      "timeout_seconds": 30
+    },
+    {
+      "id": "run_tests",
+      "action": "ci.run_tests",
+      "description": "Execute test suite",
+      "params": {
+        "test_command": "npm test",
+        "coverage": true
+      },
+      "dependencies": ["validate_branch"],
+      "condition": {
+        "if": "skip_tests",
+        "equals": false
+      },
+      "on_error": "fail",
+      "timeout_seconds": 600
+    },
+    {
+      "id": "build_artifacts",
+      "action": "build.create_artifacts",
+      "description": "Build deployable artifacts",
+      "params": {
+        "build_command": "npm run build",
+        "output_dir": "./dist"
+      },
+      "dependencies": ["run_tests"],
+      "on_error": "fail",
+      "timeout_seconds": 300
+    },
+    {
+      "id": "deploy_to_preview",
+      "action": "deploy.vercel_preview",
+      "description": "Deploy to preview environment",
+      "params": {
+        "project": "chromasmith-sandbox",
+        "environment": "{{inputs.environment}}",
+        "branch": "{{inputs.branch_name}}"
+      },
+      "dependencies": ["build_artifacts"],
+      "on_error": "fail",
+      "timeout_seconds": 180
+    },
+    {
+      "id": "notify_team",
+      "action": "notify.slack_message",
+      "description": "Send deployment notification",
+      "params": {
+        "channel": "#deployments",
+        "message": "🚀 Feature {{inputs.branch_name}} deployed to {{inputs.environment}}"
+      },
+      "dependencies": ["deploy_to_preview"],
+      "condition": {
+        "if": "notify_slack",
+        "equals": true
+      },
+      "on_error": "continue",
+      "timeout_seconds": 10
+    }
+  ],
+  "outputs": {
+    "preview_url": {
+      "description": "URL of deployed preview",
+      "from_step": "deploy_to_preview"
+    },
+    "build_time": {
+      "description": "Total build duration",
+      "from_step": "build_artifacts"
+    }
+  }
+}
