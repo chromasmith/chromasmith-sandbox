@@ -1,0 +1,127 @@
+{
+  "name": "publish-content",
+  "version": "1.0",
+  "description": "Publish content to CMS and invalidate cache",
+  "author": "Chromasmith",
+  "tags": ["content", "cms", "publishing"],
+  "inputs": {
+    "content_path": {
+      "type": "string",
+      "description": "Path to content file or directory",
+      "required": true
+    },
+    "publish_date": {
+      "type": "string",
+      "description": "Scheduled publish date (ISO format)",
+      "required": false
+    },
+    "content_type": {
+      "type": "string",
+      "description": "Type of content (article, page, post)",
+      "required": true,
+      "default": "article"
+    },
+    "draft_mode": {
+      "type": "boolean",
+      "description": "Publish as draft",
+      "required": false,
+      "default": false
+    },
+    "invalidate_cdn": {
+      "type": "boolean",
+      "description": "Invalidate CDN cache",
+      "required": false,
+      "default": true
+    }
+  },
+  "steps": [
+    {
+      "id": "validate_content",
+      "action": "content.validate",
+      "description": "Validate content structure and metadata",
+      "params": {
+        "path": "{{inputs.content_path}}",
+        "type": "{{inputs.content_type}}",
+        "check_frontmatter": true,
+        "check_images": true
+      },
+      "on_error": "fail",
+      "timeout_seconds": 60
+    },
+    {
+      "id": "check_schedule",
+      "action": "schedule.verify_date",
+      "description": "Verify publish schedule",
+      "params": {
+        "target_date": "{{inputs.publish_date}}"
+      },
+      "dependencies": ["validate_content"],
+      "condition": {
+        "exists": "publish_date"
+      },
+      "on_error": "continue",
+      "timeout_seconds": 5
+    },
+    {
+      "id": "generate_metadata",
+      "action": "content.generate_meta",
+      "description": "Generate SEO metadata and social cards",
+      "params": {
+        "path": "{{inputs.content_path}}",
+        "auto_excerpt": true,
+        "og_image": true,
+        "twitter_card": true
+      },
+      "dependencies": ["validate_content"],
+      "on_error": "continue",
+      "timeout_seconds": 120
+    },
+    {
+      "id": "publish_to_cms",
+      "action": "cms.publish",
+      "description": "Publish content to CMS",
+      "params": {
+        "path": "{{inputs.content_path}}",
+        "type": "{{inputs.content_type}}",
+        "draft": "{{inputs.draft_mode}}",
+        "scheduled_date": "{{inputs.publish_date}}"
+      },
+      "dependencies": ["generate_metadata", "check_schedule"],
+      "on_error": "fail",
+      "timeout_seconds": 180
+    },
+    {
+      "id": "invalidate_cache",
+      "action": "cdn.purge_cache",
+      "description": "Invalidate CDN cache for published content",
+      "params": {
+        "paths": [
+          "/{{inputs.content_path}}",
+          "/api/content/*"
+        ],
+        "wait_for_completion": true
+      },
+      "dependencies": ["publish_to_cms"],
+      "condition": {
+        "if": "invalidate_cdn",
+        "equals": true
+      },
+      "on_error": "continue",
+      "timeout_seconds": 60
+    }
+  ],
+  "outputs": {
+    "published_url": {
+      "description": "URL of published content",
+      "from_step": "publish_to_cms"
+    },
+    "cache_purge_status": {
+      "description": "Cache invalidation status",
+      "from_step": "invalidate_cache"
+    },
+    "metadata": {
+      "description": "Generated metadata",
+      "from_step": "generate_metadata"
+    }
+  }
+}
