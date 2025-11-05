@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Forge Tokens Sample Component</title>
+  
+  <style id="theme-vars">
+    :root {
+      --color-primary: #3b82f6;
+      --color-secondary: #8b5cf6;
+      --color-background: #ffffff;
+      --color-surface: #f9fafb;
+      --color-text: #111827;
+      --color-textMuted: #6b7280;
+      --color-border: #e5e7eb;
+      --color-error: #ef4444;
+      --color-success: #10b981;
+      --font-family: system-ui, -apple-system, sans-serif;
+      --font-sizeBase: 16px;
+      --font-sizeSmall: 14px;
+      --font-sizeLarge: 20px;
+      --font-sizeHeading: 32px;
+      --font-weightNormal: 400;
+      --font-weightBold: 700;
+      --radius-none: 0px;
+      --radius-small: 4px;
+      --radius-medium: 8px;
+      --radius-large: 16px;
+      --radius-full: 9999px;
+      --motion-durationFast: 150ms;
+      --motion-durationNormal: 250ms;
+      --motion-durationSlow: 400ms;
+      --motion-easing: ease-in-out;
+    }
+  </style>
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      font-size: var(--font-sizeBase);
+      color: var(--color-text);
+      background: var(--color-background);
+      padding: 20px;
+      line-height: 1.6;
+      transition: background var(--motion-durationNormal) var(--motion-easing),
+                  color var(--motion-durationNormal) var(--motion-easing);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 40px;
+    }
+
+    h1 {
+      font-size: var(--font-sizeHeading);
+      font-weight: var(--font-weightBold);
+      margin-bottom: 10px;
+      color: var(--color-text);
+    }
+
+    .subtitle {
+      font-size: var(--font-sizeLarge);
+      color: var(--color-textMuted);
+    }
+
+    .theme-switcher {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-medium);
+      transition: all var(--motion-durationNormal) var(--motion-easing);
+    }
+
+    .theme-switcher label {
+      font-weight: var(--font-weightBold);
+      margin-right: 10px;
+      color: var(--color-text);
+    }
+
+    .button {
+      background: var(--color-primary);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: var(--radius-small);
+      font-weight: var(--font-weightBold);
+      font-size: var(--font-sizeBase);
+      cursor: pointer;
+      transition: all var(--motion-durationFast) var(--motion-easing);
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .button:active {
+      transform: translateY(0);
+    }
+
+    .button.secondary {
+      background: var(--color-secondary);
+    }
+
+    .card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-medium);
+      padding: 24px;
+      margin: 20px 0;
+      transition: all var(--motion-durationNormal) var(--motion-easing);
+    }
+
+    .card:hover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .card h2 {
+      font-size: var(--font-sizeLarge);
+      font-weight: var(--font-weightBold);
+      margin-bottom: 12px;
+      color: var(--color-text);
+    }
+
+    .card p {
+      color: var(--color-textMuted);
+      margin-bottom: 16px;
+    }
+
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .token-sample {
+      padding: 16px;
+      background: var(--color-surface);
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius-small);
+      text-align: center;
+      transition: all var(--motion-durationFast) var(--motion-easing);
+    }
+
+    .token-sample:hover {
+      border-color: var(--color-primary);
+    }
+
+    .color-swatch {
+      width: 100%;
+      height: 60px;
+      border-radius: var(--radius-small);
+      margin-bottom: 8px;
+      border: 1px solid var(--color-border);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+      font-size: var(--font-sizeSmall);
+      font-weight: var(--font-weightBold);
+      margin: 4px;
+    }
+
+    .badge.success {
+      background: var(--color-success);
+      color: white;
+    }
+
+    .badge.error {
+      background: var(--color-error);
+      color: white;
+    }
+
+    .current-theme {
+      display: inline-block;
+      padding: 8px 16px;
+      background: var(--color-primary);
+      color: white;
+      border-radius: var(--radius-full);
+      font-weight: var(--font-weightBold);
+      font-size: var(--font-sizeSmall);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Forge Tokens Demo</h1>
+      <p class="subtitle">Design token system with theme switching</p>
+      <p>Current theme: <span class="current-theme" id="current-theme">default</span></p>
+    </div>
+
+    <div class="theme-switcher">
+      <label>Switch Theme:</label>
+      <button class="button" onclick="applyTheme('default')">Default</button>
+      <button class="button secondary" onclick="applyTheme('dark')">Dark</button>
+    </div>
+
+    <div class="card">
+      <h2>Token Categories</h2>
+      <p>This component demonstrates all token categories from the Ntoken schema:</p>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <span class="badge success">Color Tokens</span>
+        <span class="badge success">Font Tokens</span>
+        <span class="badge success">Radius Tokens</span>
+        <span class="badge success">Motion Tokens</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Color Tokens</h2>
+      <div class="token-grid">
+        <div class="token-sample">
+          <div class="color-swatch" style="background: var(--color-primary);"></div>
+          <div>Primary</div>
+        </div>
+        <div class="token-sample">
+          <div class="color-swatch" style="background: var(--color-secondary);"></div>
+          <div>Secondary</div>
+        </div>
+        <div class="token-sample">
+          <div class="color-swatch" style="background: var(--color-success);"></div>
+          <div>Success</div>
+        </div>
+        <div class="token-sample">
+          <div class="color-swatch" style="background: var(--color-error);"></div>
+          <div>Error</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Interactive Elements</h2>
+      <p>Buttons and interactive elements use motion tokens for smooth transitions:</p>
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button class="button">Primary Action</button>
+        <button class="button secondary">Secondary Action</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>About Forge Tokens</h2>
+      <p>
+        The forge-tokens module provides a complete design token management system
+        following the Ntoken schema. It includes:
+      </p>
+      <ul style="margin-left: 20px; color: var(--color-textMuted);">
+        <li>Theme loading and switching</li>
+        <li>Token retrieval API</li>
+        <li>CSS custom property generation</li>
+        <li>Multiple built-in themes (default, dark)</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // Theme data (in production, this would come from forge-tokens module)
+    const themes = {
+      default: {
+        '--color-primary': '#3b82f6',
+        '--color-secondary': '#8b5cf6',
+        '--color-background': '#ffffff',
+        '--color-surface': '#f9fafb',
+        '--color-text': '#111827',
+        '--color-textMuted': '#6b7280',
+        '--color-border': '#e5e7eb',
+        '--color-error': '#ef4444',
+        '--color-success': '#10b981'
+      },
+      dark: {
+        '--color-primary': '#60a5fa',
+        '--color-secondary': '#a78bfa',
+        '--color-background': '#111827',
+        '--color-surface': '#1f2937',
+        '--color-text': '#f9fafb',
+        '--color-textMuted': '#9ca3af',
+        '--color-border': '#374151',
+        '--color-error': '#f87171',
+        '--color-success': '#34d399'
+      }
+    };
+
+    function applyTheme(themeName) {
+      const theme = themes[themeName];
+      if (!theme) return;
+
+      const root = document.documentElement;
+      Object.entries(theme).forEach(([key, value]) => {
+        root.style.setProperty(key, value);
+      });
+
+      document.getElementById('current-theme').textContent = themeName;
+      console.log(`Applied theme: ${themeName}`);
+    }
+
+    // Note: In production, this would use the forge-tokens API:
+    // const tokens = require('./index.cjs');
+    // tokens.tokens_apply('dark');
+    // const cssVars = tokens.tokens_to_css_vars();
+  </script>
+</body>
+</html>
