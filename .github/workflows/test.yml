@@ -22,6 +22,17 @@ jobs:
       - name: Install dependencies
         run: npm install
         
+      - name: Setup test environment
+        run: |
+          mkdir -p .forge/_wal
+          mkdir -p .forge/_wal_shadow
+          mkdir -p .forge/status
+          mkdir -p .forge/status/logs
+          mkdir -p .forge/context
+          mkdir -p .forge/_policy
+          mkdir -p .forge/_dlq
+          echo "Test environment directories created"
+        
       - name: Run all tests
         run: |
           echo "Running Forge Flow test suite..."
