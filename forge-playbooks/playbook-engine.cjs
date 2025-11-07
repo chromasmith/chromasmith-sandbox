@@ -95,21 +95,19 @@ function checkDependencies(steps) {
 function evaluateCondition(condition, context) {
   if (!condition) return true;
   
-  if (condition.if) {
-    // Simple variable existence check
-    const varName = condition.if;
-    return context[varName] !== undefined;
+  // Check combined condition (if + equals) first - most specific
+  if (condition.if && condition.equals !== undefined) {
+    return context[condition.if] === condition.equals;
   }
   
-  if (condition.equals !== undefined) {
-    // Equality check
-    const varName = condition.if || Object.keys(condition)[0];
-    return context[varName] === condition.equals;
-  }
-  
+  // Check simple existence conditions
   if (condition.exists) {
-    // Check if variable exists
     return context[condition.exists] !== undefined;
+  }
+  
+  // Check standalone if condition (variable existence)
+  if (condition.if) {
+    return context[condition.if] !== undefined;
   }
   
   return true;
@@ -286,3 +284,4 @@ module.exports = {
   generateExecutionPlan,
   emitDraftPlan
 };
+
