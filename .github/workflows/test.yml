@@ -1,0 +1,56 @@
+name: Forge Flow Tests
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "dev", "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run all tests
+        run: |
+          echo "Running Forge Flow test suite..."
+          TEST_COUNT=0
+          PASS_COUNT=0
+          FAIL_COUNT=0
+          
+          for test_file in $(find . -name '*test*.cjs' -o -name '*test*.js'); do
+            echo "Running: $test_file"
+            if node "$test_file"; then
+              PASS_COUNT=$((PASS_COUNT + 1))
+            else
+              FAIL_COUNT=$((FAIL_COUNT + 1))
+            fi
+            TEST_COUNT=$((TEST_COUNT + 1))
+          done
+          
+          echo "================================"
+          echo "Tests run: $TEST_COUNT"
+          echo "Passed: $PASS_COUNT"
+          echo "Failed: $FAIL_COUNT"
+          echo "================================"
+          
+          if [ $FAIL_COUNT -gt 0 ]; then
+            exit 1
+          fi
+          
+      - name: Test Summary
+        if: always()
+        run: echo "Test execution complete"
+
