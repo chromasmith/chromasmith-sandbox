@@ -29,7 +29,8 @@ jobs:
           PASS_COUNT=0
           FAIL_COUNT=0
           
-          for test_file in $(find . -name '*test*.cjs' -o -name '*test*.js'); do
+          # Only search project directories, exclude node_modules
+          for test_file in $(find . -path ./node_modules -prune -o -type f \( -name '*test*.cjs' -o -name '*test*.js' \) -print); do
             echo "Running: $test_file"
             if node "$test_file"; then
               PASS_COUNT=$((PASS_COUNT + 1))
